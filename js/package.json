@@ -1,0 +1,52 @@
+{
+  "name": "affordkit",
+  "version": "0.1.0",
+  "description": "Your app's UI, for AI agents to see and use: controls become a tree with the operations you'd expect of them, and agents act on it under your app's policies.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/momomoink/affordkit.git",
+    "directory": "js"
+  },
+  "homepage": "https://github.com/momomoink/affordkit#readme",
+  "bugs": "https://github.com/momomoink/affordkit/issues",
+  "keywords": [
+    "ai",
+    "agent",
+    "ui",
+    "accessibility",
+    "automation",
+    "mcp",
+    "llm",
+    "dom"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./dom": {
+      "types": "./dist/dom.d.ts",
+      "default": "./dist/dom.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "happy-dom": "^21.0.3",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
