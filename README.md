@@ -9,33 +9,18 @@
 
 <p align="center">Your app's UI, for AI agents to see and use.</p>
 
-The controls on screen become a small tree: what each is, what it's called, what it shows, a short state, and the operations
-you'd expect of it (a button is pressed, a field read and written, an entry of a long list fetched). The agent answers with calls
-that the app runs under its own policies (`allow`, `confirm`, `deny`), and gets back what they changed on screen.
+AffordKit turns your app's screen into a small tree an agent reads: each control, what it shows, its state, and what can be
+done to it. The agent answers with calls (press, type, scroll, go to a page) that your app runs under its own rules, and gets
+back what they changed on screen.
 
-| Package | For | Folder |
-|---|---|---|
-| `affordkit` (npm) | TypeScript / JavaScript: the DOM runtime, and the agent's side for any stack | [`js/`](js/README.md) |
-| `affordkit` (pub) | Flutter | [`flutter/`](flutter/README.md) |
+## Pick your platform
 
-Both speak the same JSON protocol (`js/src/protocol.ts`, `flutter/lib/src/protocol.dart`: keep the two in step), so an agent
-written against one works the other.
+- **Flutter**: [`flutter/README.md`](flutter/README.md) (`flutter pub add affordkit`)
+- **JavaScript / TypeScript**, for any web framework and for the agent's side on a server:
+  [`js/README.md`](js/README.md) (`npm install affordkit`)
 
-- **The tree:** controls in reading order, under the nearest afforded parent; pages under the one on top as nodes of their own.
-- **Containers:** a long list is one node with a preview; an entry is fetched as a tree of its own, searched, scrolled to.
-- **Routes and app tools:** go to a page, peek at one without going, or run something the app can do without its screen.
-- **The agent's side:** `AffordRemote` (TS) / `AffordAgent` (Dart) over any transport, answers as text, error codes, and the
-  shapes of the Anthropic, OpenAI and MCP stacks.
-
-## Install
-
-```sh
-npm install affordkit       # web: the DOM runtime (affordkit/dom) and the agent's side (affordkit)
-flutter pub add affordkit   # Flutter
-```
-
-Then follow [Getting started: web](docs/getting-started-web.md) or [Getting started: Flutter](docs/getting-started-flutter.md).
-Everything else is in [the docs](docs/README.md).
+A Flutter app with its model on a TypeScript server uses both: the Flutter package in the app, the npm package on the server.
+They speak the same JSON.
 
 ## Let your coding agent add it
 
@@ -67,9 +52,10 @@ plan with code execution enabled.
 **Other agents:** the skill follows the open [Agent Skills](https://agentskills.io) format. Copy the folder to wherever your agent
 loads skills from; see its own documentation for the path.
 
-## Brand
+## Docs
 
-The logo is in [`brand/`](brand): `affordkit.svg` for light grounds, `affordkit-dark.svg` for dark ones.
+[`docs/`](docs/README.md): concepts, getting started for each platform, what to expose to the agent, connecting an agent, and
+the protocol.
 
 ## Contributing
 
@@ -77,3 +63,5 @@ The logo is in [`brand/`](brand): `affordkit.svg` for light grounds, `affordkit-
 - `flutter/`: `flutter test`, `flutter analyze`.
 - Keep `js/src/protocol.ts` and `flutter/lib/src/protocol.dart` in step.
 - After changing `docs/`, run `node scripts/sync-skill.mjs`: the skill's references are copies of the docs.
+
+The logo is in [`brand/`](brand): `affordkit.svg` for light grounds, `affordkit-dark.svg` for dark ones. MIT license.
