@@ -27,4 +27,53 @@ written against one works the other.
 - **The agent's side:** `AffordRemote` (TS) / `AffordAgent` (Dart) over any transport, answers as text, error codes, and the
   shapes of the Anthropic, OpenAI and MCP stacks.
 
+## Install
+
+```sh
+npm install affordkit       # web: the DOM runtime (affordkit/dom) and the agent's side (affordkit)
+flutter pub add affordkit   # Flutter
+```
+
+Then follow [Getting started: web](docs/getting-started-web.md) or [Getting started: Flutter](docs/getting-started-flutter.md).
+Everything else is in [the docs](docs/README.md).
+
+## Let your coding agent add it
+
+[`skills/affordkit`](skills/affordkit/SKILL.md) is an agent skill: it walks a coding agent through adding AffordKit to an
+existing project, from installing it and putting the controls into the tree to deciding what the agent may do and connecting it
+to an agent backend. Install it, then ask your agent to "add AffordKit to this app".
+
+**Claude Code**, as a plugin from this repository:
+
+```text
+/plugin install affordkit --marketplace momomoink/affordkit
+```
+
+On Claude Code before 2.1.275, add the marketplace first:
+
+```text
+/plugin marketplace add momomoink/affordkit
+/plugin install affordkit@affordkit
+```
+
+The skill is then `/affordkit:affordkit`, and Claude also uses it by itself when you ask for AffordKit.
+
+**Claude Code, without the plugin:** copy `skills/affordkit/` to `~/.claude/skills/affordkit/` (all your projects) or to
+`.claude/skills/affordkit/` in one project.
+
+**claude.ai:** zip the `skills/affordkit/` folder and upload it in Settings (Features / Capabilities, under Skills). This needs a
+plan with code execution enabled.
+
+**Other agents:** the skill follows the open [Agent Skills](https://agentskills.io) format. Copy the folder to wherever your agent
+loads skills from; see its own documentation for the path.
+
+## Brand
+
 The logo is in [`brand/`](brand): `affordkit.svg` for light grounds, `affordkit-dark.svg` for dark ones.
+
+## Contributing
+
+- `js/`: `npm install`, `npm test`, `npm run typecheck`, `npm run build`.
+- `flutter/`: `flutter test`, `flutter analyze`.
+- Keep `js/src/protocol.ts` and `flutter/lib/src/protocol.dart` in step.
+- After changing `docs/`, run `node scripts/sync-skill.mjs`: the skill's references are copies of the docs.

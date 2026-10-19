@@ -1,0 +1,12 @@
+{
+  "name": "affordkit",
+  "description": "AffordKit: let an AI agent see and use your app's UI",
+  "owner": { "name": "Rusheng Zhang", "url": "https://github.com/momomoink" },
+  "plugins": [
+    {
+      "name": "affordkit",
+      "source": ".",
+      "description": "A skill that adds AffordKit to an existing web or Flutter app and connects it to an agent"
+    }
+  ]
+}
