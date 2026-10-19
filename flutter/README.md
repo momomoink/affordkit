@@ -171,7 +171,7 @@ them. After each act the model is told what changed on screen, not the whole tre
 (`not_found`, `denied`, `needs_confirm`, ...).
 
 - **Model on your server in TypeScript or JavaScript:** `AffordRemote` from the npm package, with the Anthropic, OpenAI and MCP
-  shapes. See [Connecting an agent](https://github.com/momomoink/affordkit/blob/main/docs/connecting-an-agent.md).
+  shapes. See [Connecting an agent](https://github.com/momomoink/affordkit/blob/main/docs/js/connecting-an-agent.md).
 - **Model called from Dart** (in the app, or a Dart server):
 
 ```dart
@@ -192,7 +192,7 @@ Dart also has `openaiTools` / `openaiResult` and `mcpToolList` / `mcpToolCall`.
 - **Deny** the user's own acts: send, pay, publish, grant permissions. The agent can still point to them.
 - **Leave out** secrets, other people's private data, and the agent's own chat panel (just don't afford them).
 
-More in [What to expose](https://github.com/momomoink/affordkit/blob/main/docs/what-to-expose.md).
+More in [What to expose](https://github.com/momomoink/affordkit/blob/main/docs/flutter/what-to-expose.md).
 
 ## Let your coding agent add it
 
@@ -208,7 +208,7 @@ Then ask it to "add AffordKit to this app". Other ways to install it are in the
 
 ## More
 
-- [Getting started: Flutter](https://github.com/momomoink/affordkit/blob/main/docs/getting-started-flutter.md): every option, in
+- [Getting started: Flutter](https://github.com/momomoink/affordkit/blob/main/docs/flutter/getting-started.md): every option, in
   more detail.
-- [Concepts](https://github.com/momomoink/affordkit/blob/main/docs/concepts.md): the tree, ops, policies, containers, pages.
+- [Concepts](https://github.com/momomoink/affordkit/blob/main/docs/flutter/concepts.md): the tree, ops, policies, containers, pages.
 - [Protocol](https://github.com/momomoink/affordkit/blob/main/docs/protocol.md): the JSON.

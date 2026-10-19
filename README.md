@@ -54,7 +54,7 @@ loads skills from; see its own documentation for the path.
 
 ## Docs
 
-[`docs/`](docs/README.md): concepts, getting started for each platform, what to expose to the agent, connecting an agent, and
+[`docs/`](docs/README.md): a set per platform ([`docs/flutter`](docs/flutter/README.md), [`docs/js`](docs/js/README.md)), each with concepts, getting started, what to expose to the agent and connecting an agent; and
 the protocol.
 
 ## Contributing

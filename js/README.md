@@ -185,7 +185,7 @@ Now at /reply/7 (was /message/7) — can go back.
 Other stacks: `openaiTools` / `openaiResult` (Chat Completions), `openaiResponsesTools` / `openaiResponsesResult`, `mcpHandlers`
 (serve the page's screen as an MCP server's tools), `runners` (LangChain, the AI SDK, a loop of your own). A failed call carries a
 code: `not_found`, `no_op`, `bad_args`, `denied`, `needs_confirm`, `declined`, `disabled`, `unreachable`, `timeout`,
-`unavailable`, `failed`. More in [Connecting an agent](https://github.com/momomoink/affordkit/blob/main/docs/connecting-an-agent.md).
+`unavailable`, `failed`. More in [Connecting an agent](https://github.com/momomoink/affordkit/blob/main/docs/js/connecting-an-agent.md).
 
 ## What to let the agent do
 
@@ -194,7 +194,7 @@ code: `not_found`, `no_op`, `bad_args`, `denied`, `needs_confirm`, `declined`, `
 - **Deny** the user's own acts: send, pay, publish, grant permissions. The agent can still point to them.
 - **Leave out** secrets, other people's private data, and the agent's own chat panel (`data-afford-skip`, or `skip`).
 
-More in [What to expose](https://github.com/momomoink/affordkit/blob/main/docs/what-to-expose.md).
+More in [What to expose](https://github.com/momomoink/affordkit/blob/main/docs/js/what-to-expose.md).
 
 ## Plain JavaScript
 
@@ -223,6 +223,6 @@ Then ask it to "add AffordKit to this app". Other ways to install it are in the
 
 ## More
 
-- [Getting started: web](https://github.com/momomoink/affordkit/blob/main/docs/getting-started-web.md): every option, in more detail.
-- [Concepts](https://github.com/momomoink/affordkit/blob/main/docs/concepts.md): the tree, ops, policies, containers, pages.
+- [Getting started: web](https://github.com/momomoink/affordkit/blob/main/docs/js/getting-started.md): every option, in more detail.
+- [Concepts](https://github.com/momomoink/affordkit/blob/main/docs/js/concepts.md): the tree, ops, policies, containers, pages.
 - [Protocol](https://github.com/momomoink/affordkit/blob/main/docs/protocol.md): the JSON.

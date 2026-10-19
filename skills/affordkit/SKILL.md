@@ -11,16 +11,17 @@ navigate, app tools) under the app's own policies: `allow`, `confirm` (the user 
 Your job is to install it, put the app's controls into the tree with the right names, keys and policies, and connect it to the
 agent, without changing what the app does for its users.
 
-Read these as you need them:
+The references come in one set per platform. Find the platform in step 1, then read only that set, as you need it:
 
-- [references/concepts.md](references/concepts.md): the tree, ops, policies, containers, pages, app tools.
-- [references/getting-started-web.md](references/getting-started-web.md): the DOM runtime, attributes, `register`, containers,
-  routes, tools.
-- [references/getting-started-flutter.md](references/getting-started-flutter.md): `.afford()`, containers, routes, tools.
-- [references/what-to-expose.md](references/what-to-expose.md): which policy fits what. Read it before step 4.
-- [references/connecting-an-agent.md](references/connecting-an-agent.md): transports, `AffordRemote` / `AffordAgent`, answers,
-  error codes, the Anthropic / OpenAI / MCP shapes.
-- [references/protocol.md](references/protocol.md): the JSON, for a custom agent side.
+| | Flutter | Web (JavaScript / TypeScript) |
+|---|---|---|
+| The tree, ops, policies, containers, pages, app tools | [flutter/concepts.md](references/flutter/concepts.md) | [js/concepts.md](references/js/concepts.md) |
+| Install, set up, afford or name controls, containers, routes, tools | [flutter/getting-started.md](references/flutter/getting-started.md) | [js/getting-started.md](references/js/getting-started.md) |
+| Which policy fits what (read before step 4) | [flutter/what-to-expose.md](references/flutter/what-to-expose.md) | [js/what-to-expose.md](references/js/what-to-expose.md) |
+| Transports, the agent's side, answers, error codes, model APIs | [flutter/connecting-an-agent.md](references/flutter/connecting-an-agent.md) | [js/connecting-an-agent.md](references/js/connecting-an-agent.md) |
+
+An agent backend in TypeScript (a Node server) uses [js/connecting-an-agent.md](references/js/connecting-an-agent.md) whatever
+the app is written in. [protocol.md](references/protocol.md) is the JSON both speak, for a custom agent side.
 
 ## Workflow
 
