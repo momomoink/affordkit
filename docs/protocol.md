@@ -80,3 +80,28 @@ a picture (`{ "type": "image", "mime": "image/png", "data": "<base64>", "width":
 { "context": { "…": "…" }, "results": [{ "…": "…" }], "picture": { "type": "image", "mime": "image/png", "data": "…" } }
 { "error": "…", "code": "failed" }
 ```
+
+## Error codes
+
+`not_found`, `no_op`, `bad_args`, `denied`, `needs_confirm`, `declined`, `disabled`, `unreachable`, `timeout`, `unavailable`,
+`away` (the user is not in the app now: its screen can't be worked), `expired` (a handoff past its `expiresAt`), `failed`.
+
+## Handoffs
+
+What an agent leaves for a user who is away, run by the app when they come back
+([Flutter](flutter/handoffs.md), [JavaScript](js/handoffs.md)):
+
+```json
+{
+  "v": 1,
+  "message": "回复写好了，在草稿箱",
+  "route": "/drafts",
+  "calls": [{ "key": "draft.d81", "op": "press" }],
+  "expiresAt": 1792540800000,
+  "id": "h_5f2c"
+}
+```
+
+`message` (at most 500 characters) is for the user. `route` (optional) is gone to first. `calls` (at most 20) run after it, in
+order: `{ key, op, args? }`, each addressing a control by its key, never by an id from a look (`n12`, `w4`, `peek:…` are
+refused); `node` is taken for `key`. `expiresAt` is ms since the epoch; `id` is the host's.

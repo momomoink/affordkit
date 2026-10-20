@@ -101,6 +101,6 @@ describe('AffordKit on the DOM', () => {
       [true, '/settings/ai'],
     ]);
     expect(context.route!.current).toBe('/settings/ai');
-    expect(AGENT_TOOLS.map((t) => t.name)).toEqual(['ui_look', 'ui_act', 'ui_tool', 'ui_navigate', 'ui_peek']);
+    expect(AGENT_TOOLS.map((t) => t.name)).toEqual(['ui_look', 'ui_act', 'ui_tool', 'ui_navigate', 'ui_peek', 'ui_handoff']);
   });
 });

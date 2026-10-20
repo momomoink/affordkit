@@ -18,6 +18,8 @@
  *   it as a tree of its own (live ids and keys it can act on), or pages through all entries' summaries (`items`). Each entry has a
  *   key made from the container's (`mail.list[42]`), controls inside it keys under that (`mail.list[42].reply`); an entry that
  *   isn't built (virtualized) is scrolled to first. Acting on such a key straight away works too. Containers nest.
+ * - When the user has left the app (it is in the background), its screen can't be worked: the agent does what it can another way,
+ *   and may leave a handoff — a message, and calls by key that take the user to what it did when they come back.
  */
 
 export const PROTOCOL_VERSION = 1;
@@ -48,7 +50,7 @@ export type Policy = 'allow' | 'confirm' | 'deny';
 /** A JSON Schema (an object's properties) for an operation's or a tool's arguments. */
 export interface ParamsSchema {
   type: 'object';
-  properties: Record<string, { type: string; description?: string; enum?: unknown[] }>;
+  properties: Record<string, { type: string; description?: string; enum?: unknown[]; items?: Record<string, unknown> }>;
   required?: string[];
 }
 
@@ -194,6 +196,10 @@ export type ErrorCode =
   | 'timeout'
   /** There is no app to work, or it could not answer. */
   | 'unavailable'
+  /** The user is not in the app now (it is in the background): its screen can't be looked at or worked. */
+  | 'away'
+  /** A handoff past its expiresAt: not run. */
+  | 'expired'
   /** Anything else that went wrong doing it. */
   | 'failed';
 
@@ -248,6 +254,85 @@ export function isImage(v: unknown): v is ImageValue {
 export interface ExecuteResult {
   results: CallResult[];
   context: AffordContext;
+}
+
+/** One step of a handoff: an op on a control by its key (a handoff runs later, when ids from a look have long gone). */
+export interface HandoffCall {
+  key: string;
+  op: string;
+  args?: Record<string, unknown>;
+}
+
+/**
+ * What an agent leaves for a user who is away (the app in the background): a short message, and the calls that take them to what
+ * it did when they come back — the page first (route), then ops there by key. The host keeps it and tells the user (a
+ * notification, usually); when they tap it, the app runs it (kit.runHandoff). One-shot, and it expires.
+ */
+export interface Handoff {
+  v: 1;
+  /** What the agent did and what is waiting, for the user (at most HANDOFF_MAX_MESSAGE characters). */
+  message: string;
+  /** Where to go first: a route of the app (one of the context's routes, filled in). */
+  route?: string;
+  /** Then these, in order (at most HANDOFF_MAX_CALLS). */
+  calls: HandoffCall[];
+  /** When it stops being good (ms since the epoch). */
+  expiresAt?: number;
+  /** The host's id for it, set when it stores it. */
+  id?: string;
+}
+
+/** Most calls in a handoff. */
+export const HANDOFF_MAX_CALLS = 20;
+
+/** Longest message of a handoff. */
+export const HANDOFF_MAX_MESSAGE = 500;
+
+/** Whether a node ref is an id from a look (the kit's: n12, w4, p3, app, behind-2, peek:…) rather than a key the app gave. */
+const isLookId = (ref: string) => ref.startsWith('peek:') || /^(?:[nwp]\d+|app|behind-\d+)$/.test(ref);
+
+/** What is wrong with something given as a handoff (its shape, not whether it expired), or null when it is one. */
+export function handoffProblem(input: unknown): string | null {
+  const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (!obj(input)) return 'A handoff is an object: { message, route?, calls? }';
+  if (input.v !== undefined && input.v !== 1) return `Unknown handoff version ${String(input.v)}`;
+  const message = typeof input.message === 'string' ? input.message.trim() : '';
+  if (!message) return 'Say what you did in message: the user reads it';
+  if (message.length > HANDOFF_MAX_MESSAGE) return `message is too long (${message.length} characters, at most ${HANDOFF_MAX_MESSAGE})`;
+  if (input.route !== undefined && (typeof input.route !== 'string' || !input.route.trim() || input.route.trim() === 'back')) return 'route is a route of the app (e.g. /drafts), or left out';
+  if (input.expiresAt !== undefined && (typeof input.expiresAt !== 'number' || !Number.isFinite(input.expiresAt))) return 'expiresAt is a time in ms';
+  if (input.id !== undefined && typeof input.id !== 'string') return 'id is a string';
+  const calls = input.calls ?? [];
+  if (!Array.isArray(calls)) return 'calls is a list of { key, op, args? }';
+  if (calls.length > HANDOFF_MAX_CALLS) return `Too many calls (${calls.length}, at most ${HANDOFF_MAX_CALLS}): take the user to the result, no more`;
+  for (const [i, c] of calls.entries()) {
+    // (a key, as ui_act's node or as key)
+    const key = obj(c) ? (c.key ?? c.node) : undefined;
+    if (!obj(c) || typeof key !== 'string' || !key || typeof c.op !== 'string' || !c.op) return `calls[${i}] is not { key, op, args? }`;
+    if (isLookId(key)) return `calls[${i}]: ${key} is an id from a look, gone by the time the user comes back: use the control's key`;
+    if (c.args !== undefined && !obj(c.args)) return `calls[${i}].args is an object`;
+  }
+  return null;
+}
+
+/** Whether a handoff's time is up. */
+export function handoffExpired(handoff: { expiresAt?: number }, now = Date.now()): boolean {
+  return handoff.expiresAt !== undefined && handoff.expiresAt <= now;
+}
+
+/** Something given as a handoff (the agent's input, what the host stored), checked and in its plain shape; null when it isn't one or it expired. */
+export function parseHandoff(input: unknown, now = Date.now()): Handoff | null {
+  if (handoffProblem(input)) return null;
+  const h = input as Record<string, unknown> & { calls?: Record<string, unknown>[] };
+  const out: Handoff = {
+    v: 1,
+    message: (h.message as string).trim(),
+    ...(typeof h.route === 'string' ? { route: h.route.trim() } : {}),
+    calls: (h.calls ?? []).map((c) => ({ key: (c.key ?? c.node) as string, op: c.op as string, ...(c.args ? { args: c.args as Record<string, unknown> } : {}) })),
+    ...(typeof h.expiresAt === 'number' ? { expiresAt: h.expiresAt } : {}),
+    ...(typeof h.id === 'string' ? { id: h.id } : {}),
+  };
+  return handoffExpired(out, now) ? null : out;
 }
 
 const textParam = (description: string): ParamsSchema => ({ type: 'object', properties: { text: { type: 'string', description } }, required: ['text'] });

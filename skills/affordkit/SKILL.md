@@ -19,6 +19,7 @@ The references come in one set per platform. Find the platform in step 1, then r
 | Install, set up, afford or name controls, containers, routes, tools | [flutter/getting-started.md](references/flutter/getting-started.md) | [js/getting-started.md](references/js/getting-started.md) |
 | Which policy fits what (read before step 4) | [flutter/what-to-expose.md](references/flutter/what-to-expose.md) | [js/what-to-expose.md](references/js/what-to-expose.md) |
 | Transports, the agent's side, answers, error codes, model APIs | [flutter/connecting-an-agent.md](references/flutter/connecting-an-agent.md) | [js/connecting-an-agent.md](references/js/connecting-an-agent.md) |
+| When the user has left the app: `away`, `ui_handoff`, notifications, `runHandoff` | [flutter/handoffs.md](references/flutter/handoffs.md) | [js/handoffs.md](references/js/handoffs.md) |
 
 An agent backend in TypeScript (a Node server) uses [js/connecting-an-agent.md](references/js/connecting-an-agent.md) whatever
 the app is written in. [protocol.md](references/protocol.md) is the JSON both speak, for a custom agent side.
@@ -154,6 +155,10 @@ description that says what it does, a JSON schema with `enum` where values are f
 - Tell the model, in the app's system prompt, to work the screen the user sees step by step and leave denied actions (Send) to
   the user.
 - An agent running in the app itself: `kit.agent()`, no transport.
+- **When the user leaves the app** (a phone app in the background, a hidden tab): pass `present` so the screen tools answer
+  `away` at once. If the app sends push notifications, also pass `onHandoff` so the agent can leave a handoff (`ui_handoff`):
+  store it on the server, push only its id, and on tap fetch it over the app's authenticated API and run
+  `kit.runHandoff(handoff)`. Never run one taken from the notification payload or a deep link. See the handoffs reference.
 
 ### 11. Verify
 

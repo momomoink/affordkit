@@ -33,7 +33,7 @@ ui.seen(screenSentWithTheMessage);                     // optional: the screen t
 ```
 
 - `ui.tools()`: the five tools (`ui_look`, `ui_act`, `ui_tool`, `ui_navigate`, `ui_peek`; `ui_tool` only when the page has tools of
-  its own), each `{ name, description, inputSchema }`.
+  its own; `ui_handoff` too with `onHandoff`), each `{ name, description, inputSchema }`.
 - `ui.has(name)`: whether a tool the model called is one of these.
 - `ui.handle(name, input)`: runs one and resolves with `{ text, isError, code, images, context }`. It never throws: a failure is an
   answer with `isError` and a `code`.
@@ -41,6 +41,12 @@ ui.seen(screenSentWithTheMessage);                     // optional: the screen t
 Options: `screen: 'whole'` for the whole tree after every act instead of what changed, `tools` to offer only some, `maxNodes`.
 
 An agent running in the page itself needs no transport: `const ui = kit.agent()`.
+
+### When the user has left
+
+`present: () => boolean` says whether the user is in the app; while it says no, the screen tools answer code `away` at once.
+`onHandoff(handoff)` adds a sixth tool, `ui_handoff`, for the agent to leave the user a message and the calls that take them to
+what it did when they come back. See [Handoffs](handoffs.md).
 
 ## What the model gets back
 
@@ -75,6 +81,8 @@ The `view` op returns a picture beside the text (`images`); pass it to models th
 | `unreachable` | something is over it and it can't be worked from there |
 | `timeout` | the page did not answer in time |
 | `unavailable` | no page to work, or it could not answer |
+| `away` | the user is not in the app now (`present` says so): the screen can't be worked; leave a handoff |
+| `expired` | a handoff past its `expiresAt`: not run |
 | `failed` | anything else that went wrong doing it |
 
 The text says it in words for the model; the code is for your loop (on `needs_confirm`, ask the user and try again). Your own ops

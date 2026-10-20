@@ -181,6 +181,10 @@ final result = await anthropicResult(ui, block);          // the tool_result blo
 
 Dart also has `openaiTools` / `openaiResult` and `mcpToolList` / `mcpToolCall`.
 
+When the user has left the app, the screen tools answer `away`; give the agent `onHandoff` and it can leave them a handoff
+(`ui_handoff`): a message, and the calls that take them to what it did when they tap your notification
+(`AffordKit.instance.runHandoff`). See [Handoffs](https://github.com/momomoink/affordkit/blob/main/docs/flutter/handoffs.md).
+
 ## What to let the agent do
 
 - **Allow** what is reversible and visible: open, search, type into a draft, star, archive.
@@ -207,4 +211,6 @@ Then ask it to "add AffordKit to this app". Other ways to install it are in the
 - [Getting started: Flutter](https://github.com/momomoink/affordkit/blob/main/docs/flutter/getting-started.md): every option, in
   more detail.
 - [Concepts](https://github.com/momomoink/affordkit/blob/main/docs/flutter/concepts.md): the tree, ops, policies, containers, pages.
+- [Handoffs](https://github.com/momomoink/affordkit/blob/main/docs/flutter/handoffs.md): when the user has left the app, the agent
+  leaves a message and the calls that take them to what it did (`ui_handoff`, `kit.runHandoff`).
 - [Protocol](https://github.com/momomoink/affordkit/blob/main/docs/protocol.md): the JSON.

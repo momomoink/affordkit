@@ -662,6 +662,12 @@ enum ErrorCode {
   /// There is no app to work, or it could not answer.
   unavailable('unavailable'),
 
+  /// The user is not in the app now (it is in the background): its screen can't be looked at or worked.
+  away('away'),
+
+  /// A handoff past its expiresAt: not run.
+  expired('expired'),
+
   /// Anything else that went wrong doing it.
   failed('failed');
 
@@ -752,6 +758,173 @@ class ExecuteResult {
     'results': results.map((r) => r.toJson()).toList(),
     'context': context.toJson(),
   };
+}
+
+/// One step of a handoff: an op on a control by its key (a handoff runs later, when ids from a look have long gone).
+class HandoffCall {
+  /// Do [op] on the control with [key], with [args].
+  const HandoffCall(this.key, this.op, [this.args = const {}]);
+
+  /// The control's key (an entry's key, such as drafts.list[42], works even off screen).
+  final String key;
+
+  /// The op's name.
+  final String op;
+
+  /// The op's arguments.
+  final Map<String, Object?> args;
+
+  /// The call the app runs for it.
+  NodeCall toCall() => NodeCall(key, op, args);
+
+  /// The step as JSON.
+  Map<String, Object?> toJson() => {
+    'key': key,
+    'op': op,
+    if (args.isNotEmpty) 'args': args,
+  };
+}
+
+/// Most calls in a handoff.
+const handoffMaxCalls = 20;
+
+/// Longest message of a handoff.
+const handoffMaxMessage = 500;
+
+/// What an agent leaves for a user who is away (the app in the background): a short message, and the calls that take them to what
+/// it did when they come back — the page first ([route]), then ops there by key. The host keeps it and tells the user (a
+/// notification, usually); when they tap it, the app runs it (AffordKit.runHandoff). One-shot, and it expires.
+class Handoff {
+  /// A handoff saying [message].
+  const Handoff({
+    required this.message,
+    this.calls = const [],
+    this.route,
+    this.expiresAt,
+    this.id,
+  });
+
+  /// The version of the handoff's JSON (`v`).
+  static const version = 1;
+
+  /// What the agent did and what is waiting, for the user (at most [handoffMaxMessage] characters).
+  final String message;
+
+  /// Where to go first: a route of the app (one of the context's routes, filled in).
+  final String? route;
+
+  /// Then these, in order (at most [handoffMaxCalls]).
+  final List<HandoffCall> calls;
+
+  /// When it stops being good (ms since the epoch on the wire).
+  final DateTime? expiresAt;
+
+  /// The host's id for it, set when it stores it.
+  final String? id;
+
+  /// Whether its time is up (at [now], default now).
+  bool isExpired([DateTime? now]) =>
+      expiresAt != null && !expiresAt!.isAfter(now ?? DateTime.now());
+
+  /// The same handoff with the host's [id] for it.
+  Handoff withId(String id) => Handoff(
+    message: message,
+    calls: calls,
+    route: route,
+    expiresAt: expiresAt,
+    id: id,
+  );
+
+  /// The handoff as JSON.
+  Map<String, Object?> toJson() => {
+    'v': version,
+    'message': message,
+    'route': ?route,
+    'calls': calls.map((c) => c.toJson()).toList(),
+    if (expiresAt != null) 'expiresAt': expiresAt!.millisecondsSinceEpoch,
+    'id': ?id,
+  };
+}
+
+/// Whether a node ref is an id from a look (the kit's: n12, w4, p3, app, behind-2, peek:…) rather than a key the app gave.
+bool _isLookId(String ref) =>
+    ref.startsWith('peek:') ||
+    RegExp(r'^(?:[nwp]\d+|app|behind-\d+)$').hasMatch(ref);
+
+/// What is wrong with something given as a handoff (its JSON: its shape, not whether it expired), or null when it is one.
+String? handoffProblem(Object? input) {
+  if (input is! Map) {
+    return 'A handoff is an object: { message, route?, calls? }';
+  }
+  final v = input['v'];
+  if (v != null && v != Handoff.version) return 'Unknown handoff version $v';
+  final m = input['message'];
+  final message = m is String ? m.trim() : '';
+  if (message.isEmpty) return 'Say what you did in message: the user reads it';
+  if (message.length > handoffMaxMessage) {
+    return 'message is too long (${message.length} characters, at most $handoffMaxMessage)';
+  }
+  final route = input['route'];
+  if (input.containsKey('route') &&
+      (route is! String || route.trim().isEmpty || route.trim() == 'back')) {
+    return 'route is a route of the app (e.g. /drafts), or left out';
+  }
+  final expiresAt = input['expiresAt'];
+  if (input.containsKey('expiresAt') &&
+      (expiresAt is! num || !expiresAt.isFinite)) {
+    return 'expiresAt is a time in ms';
+  }
+  if (input.containsKey('id') && input['id'] is! String) {
+    return 'id is a string';
+  }
+  final calls = input['calls'] ?? const [];
+  if (calls is! List) return 'calls is a list of { key, op, args? }';
+  if (calls.length > handoffMaxCalls) {
+    return 'Too many calls (${calls.length}, at most $handoffMaxCalls): take the user to the result, no more';
+  }
+  for (final (i, c) in calls.indexed) {
+    // (a key, as ui_act's node or as key)
+    final key = c is Map ? (c['key'] ?? c['node']) : null;
+    if (c is! Map ||
+        key is! String ||
+        key.isEmpty ||
+        c['op'] is! String ||
+        (c['op'] as String).isEmpty) {
+      return 'calls[$i] is not { key, op, args? }';
+    }
+    if (_isLookId(key)) {
+      return "calls[$i]: $key is an id from a look, gone by the time the user comes back: use the control's key";
+    }
+    if (c.containsKey('args') && c['args'] is! Map) {
+      return 'calls[$i].args is an object';
+    }
+  }
+  return null;
+}
+
+/// Something given as a handoff (the agent's input, what the host stored: its JSON), checked; null when it isn't one or it expired
+/// (at [now], default now).
+Handoff? parseHandoff(Object? input, {DateTime? now}) {
+  if (handoffProblem(input) != null) return null;
+  final j = (input as Map).cast<String, Object?>();
+  final at = j['expiresAt'] as num?;
+  final h = Handoff(
+    message: (j['message'] as String).trim(),
+    route: (j['route'] as String?)?.trim(),
+    calls: [
+      for (final c in (j['calls'] as List? ?? const []).cast<Map>())
+        HandoffCall(
+          (c['key'] ?? c['node']) as String,
+          c['op'] as String,
+          (c['args'] as Map?)?.cast<String, Object?>() ?? const {},
+        ),
+    ],
+    expiresAt: at == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(at.toInt()),
+    id: j['id'] as String?,
+  );
+  return h.isExpired(now) ? null : h;
 }
 
 Map<String, Object?> _text(String description) => {

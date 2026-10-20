@@ -6,6 +6,9 @@
 //   final ui = AffordKit.instance.agent();                          // or AffordAgent(send: (request) => socket.ask(request))
 //   body['tools'] = anthropicTools(ui.tools());
 //   final answer = await ui.handle(toolUse['name'], toolUse['input']);   // → the tool_result: answer.text, answer.isError
+//
+// When the user has left the app (present says so), the screen tools answer code away at once; with onHandoff the agent also gets
+// ui_handoff, to leave the user a message and the calls that take them to what it did (see Handoff).
 
 import 'dart:async';
 import 'dart:convert';
@@ -103,9 +106,42 @@ const agentTools = [
       'required': ['route'],
     },
   ),
+  AgentTool(
+    'ui_handoff',
+    'Only when the user is away (the other ui_ tools answer code away): do what you can with your other tools, then leave the user a handoff for when they come back — a short message, and where to take them: route, the page to open first (one of the routes), then calls, ops to run there in order. The app usually shows it as a notification, and runs it when they tap. '
+        'A call names a control by its key, never its id (ids don\'t last until then): e.g. {key: "drafts.list[42]", op: "press"} to open the draft you wrote. Keep it to bringing them to the result — open the page, the item; nothing that sends, pays, deletes or can\'t be undone: they see it happen, and ops that need their yes still ask. At most 20 calls; message at most 500 characters, in the user\'s language.',
+    {
+      'type': 'object',
+      'properties': {
+        'message': {
+          'type': 'string',
+          'description':
+              'What you did and what is waiting for them, in a sentence or two',
+        },
+        'route': {
+          'type': 'string',
+          'description': 'The page to open first, e.g. /drafts',
+        },
+        'calls': {
+          'type': 'array',
+          'description': 'Then these, in order: { key, op, args? }',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'key': {'type': 'string'},
+              'op': {'type': 'string'},
+              'args': {'type': 'object'},
+            },
+            'required': ['key', 'op'],
+          },
+        },
+      },
+      'required': ['message'],
+    },
+  ),
 ];
 
-/// One of [agentTools] called by the agent → the call for the app, as JSON (null for ui_look: just the screen).
+/// One of [agentTools] called by the agent → the call for the app, as JSON (null for ui_look: just the screen; ui_handoff is not one).
 Json? toCall(String tool, Json args) {
   Json obj(Object? v) => v is Map ? v.cast<String, Object?>() : {};
   return switch (tool) {
@@ -118,6 +154,10 @@ Json? toCall(String tool, Json args) {
     'ui_tool' => {'tool': '${args['name'] ?? ''}', 'args': obj(args['args'])},
     'ui_navigate' => {'navigate': '${args['route'] ?? ''}'},
     'ui_peek' => {'peek': '${args['route'] ?? ''}'},
+    'ui_handoff' => throw const AffordError(
+      ErrorCode.badArgs,
+      'ui_handoff is not a call to the app: it goes to the host (AffordAgent with onHandoff)',
+    ),
     _ => throw AffordError(ErrorCode.badArgs, 'Not an AffordKit tool: $tool'),
   };
 }
@@ -440,6 +480,9 @@ class AffordAgent {
     this.wholeScreen = false,
     this.only,
     this.maxNodes = 400,
+    this.present,
+    this.onHandoff,
+    this.handoffTtl = const Duration(hours: 24),
   });
 
   /// Send a request ({look: true} or {calls: [...]}) to the app and complete with its answer (AffordKit.answer there).
@@ -451,11 +494,23 @@ class AffordAgent {
   /// The whole tree after every act, instead of what changed.
   final bool wholeScreen;
 
-  /// Which of [agentTools] to offer (default all — ui_tool once the app is seen to have tools of its own).
+  /// Which of [agentTools] to offer (default all — ui_tool once the app is seen to have tools of its own, ui_handoff with
+  /// [onHandoff]).
   final List<String>? only;
 
   /// Most nodes of a tree written out for the model (the rest are counted).
   final int maxNodes;
+
+  /// Whether the user is in the app now (the app's lifecycle: resumed, or as its channel last reported it). While it says no, every
+  /// tool but ui_handoff answers code away at once, without asking the app (the app's own tools run in the app too). Null: always.
+  final bool Function()? present;
+
+  /// Where a handoff the agent leaves goes (ui_handoff, checked first): keep it and tell the user — a notification with its id,
+  /// usually. What it completes with ("notification sent") is told the agent. Null: ui_handoff isn't offered.
+  final FutureOr<String?> Function(Handoff handoff)? onHandoff;
+
+  /// How long a handoff stays good: its expiresAt.
+  final Duration handoffTtl;
 
   Json? _last;
 
@@ -468,11 +523,12 @@ class AffordAgent {
   /// The tools to give the model now.
   List<AgentTool> tools() => [
     for (final t in agentTools)
-      if (only != null
-          ? only!.contains(t.name)
-          : t.name != 'ui_tool' ||
-                _last == null ||
-                _list(_last!['tools']).isNotEmpty)
+      if ((t.name != 'ui_handoff' || onHandoff != null) &&
+          (only != null
+              ? only!.contains(t.name)
+              : t.name != 'ui_tool' ||
+                    _last == null ||
+                    _list(_last!['tools']).isNotEmpty))
         t,
   ];
 
@@ -481,6 +537,14 @@ class AffordAgent {
 
   /// Run a tool the agent called. Never throws: a failure is an answer with isError and a code.
   Future<ToolAnswer> handle(String name, [Json? input]) async {
+    if (name == 'ui_handoff') return _handoff(input ?? const {});
+    // The user has left: nothing on the screen can be done now (and the app may not even answer)
+    if (present?.call() == false && agentTools.any((t) => t.name == name)) {
+      return _failed(
+        ErrorCode.away,
+        "The user is not in the app right now (it is in the background): the screen can't be looked at or worked. Use your other tools${onHandoff != null ? ', and leave a handoff (ui_handoff) for when they come back' : ''}.",
+      );
+    }
     final Json? call;
     try {
       call = toCall(name, input ?? const {});
@@ -547,6 +611,43 @@ class AffordAgent {
       context: context,
       images: images,
     );
+  }
+
+  /// ui_handoff: the agent's handoff checked (its route against the routes seen), with its expiry, and given to the host.
+  Future<ToolAnswer> _handoff(Json input) async {
+    final give = onHandoff;
+    if (give == null) {
+      return _failed(ErrorCode.notFound, 'This app takes no handoffs');
+    }
+    // (its id and expiry are the host's to say, not the agent's)
+    final draft = {
+      ...input,
+      'v': Handoff.version,
+      'expiresAt': DateTime.now().add(handoffTtl).millisecondsSinceEpoch,
+    }..remove('id');
+    final problem = handoffProblem(draft);
+    final handoff = problem == null ? parseHandoff(draft) : null;
+    if (handoff == null) {
+      return _failed(ErrorCode.badArgs, problem ?? 'Not a handoff');
+    }
+    final routes = _list(_map(_last?['route'])?['routes']);
+    final route = handoff.route;
+    if (route != null &&
+        routes.isNotEmpty &&
+        !routes.any((r) => matchRoute('${r['path']}', route) != null)) {
+      return _failed(
+        ErrorCode.badArgs,
+        'No route $route (the routes: ${routes.map((r) => r['path']).join(', ')})',
+      );
+    }
+    try {
+      final said = await give(handoff);
+      return ToolAnswer(
+        'Handoff left: ${said == null || said.isEmpty ? 'the user gets it when they come back.' : said}',
+      );
+    } catch (e) {
+      return _failed(e is AffordError ? e.code : ErrorCode.failed, '$e');
+    }
   }
 
   Future<Json> _ask(Json request) async {

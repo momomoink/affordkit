@@ -29,9 +29,12 @@
  *   });
  *   // the agent: { node: 'mail.list', op: 'item', args: { id: '42' } } → the row as a tree (mail.list[42], mail.list[42].reply ...),
  *   // then { node: 'mail.list[42].reply', op: 'press' } — or that straight away: the row is fetched (scrolled to) first
+ *
+ * Handoffs: what an agent left for a user who was away (see Handoff), run when they come back — they tapped its notification and
+ * the app fetched it by id from its own server: `await kit.runHandoff(handoff)` goes to its route and runs its calls there.
  */
 
-import { AffordError, PROTOCOL_VERSION, findRoute, itemKey, opsFor, parseItemKey, type ItemSummary, type ItemsPage, type ItemTree, type PagePeek, type RouteState, type AffordContext, type AffordNode, type Call, type CallResult, type ExecuteResult, type OpSpec, type ParamsSchema, type Policy, type Role, type RouteSpec, type StateValue, type ToolSpec, type UiAnswer, type UiRequest, type ImageValue } from './protocol.js';
+import { AffordError, PROTOCOL_VERSION, findRoute, handoffProblem, itemKey, opsFor, parseHandoff, parseItemKey, type ErrorCode, type Handoff, type ItemSummary, type ItemsPage, type ItemTree, type PagePeek, type RouteState, type AffordContext, type AffordNode, type Call, type CallResult, type ExecuteResult, type OpSpec, type ParamsSchema, type Policy, type Role, type RouteSpec, type StateValue, type ToolSpec, type UiAnswer, type UiRequest, type ImageValue } from './protocol.js';
 import { AffordRemote, type RemoteOptions } from './remote.js';
 
 /** An operation the app adds to a control. */
@@ -129,6 +132,27 @@ export interface AffordKitOptions {
   maxRead?: number;
   /** Resolves once what the agent's calls changed has shown (default: a frame or two) — before it is given the screen after them. */
   settle?: () => Promise<void>;
+}
+
+/** How a handoff is run (kit.runHandoff). */
+export interface HandoffOptions {
+  /** Asked before a call with policy confirm (default: the kit's confirm; without either, the handoff stops there with needs_confirm). */
+  confirm?: AffordKitOptions['confirm'];
+  /** The time now, in ms (for its expiry; default Date.now()). */
+  now?: number;
+}
+
+/** What came of running a handoff: whether it all ran, how many of its calls did, and where and why it stopped. */
+export interface HandoffResult {
+  ok: boolean;
+  /** How many of its calls ran (its route not counted). */
+  ran: number;
+  /** The call it stopped at (its index), or -1 before any: invalid, expired, or its route could not be gone to. */
+  stoppedAt?: number;
+  code?: ErrorCode;
+  error?: string;
+  /** Each step's result: the route's first, when it has one. */
+  results: CallResult[];
 }
 
 /** Elements whose role the tag (or ARIA) gives, and what they are. */
@@ -650,15 +674,47 @@ export class AffordKit {
     return { results, context: this.context() };
   }
 
-  private async allowed(policy: Policy, what: { call: Call; node?: AffordNode; tool?: ToolSpec }): Promise<CallResult | null> {
+  /**
+   * A handoff an agent left (see Handoff), run when the user is back — they tapped its notification: its route first (shown before
+   * going on), then its calls in order, as the agent's calls run (policies and all: deny is never run, confirm asks — confirm here,
+   * else the kit's; without either it stops there, not done). Stops at the first that fails. An expired one is not run.
+   *
+   * Only run one your app got over its own authenticated channel (fetched by the id in the notification, never taken from the
+   * notification or a link itself), and only once.
+   */
+  async runHandoff(handoff: Handoff, options: HandoffOptions = {}): Promise<HandoffResult> {
+    const results: CallResult[] = [];
+    const stop = (at: number, code: ErrorCode, error: string): HandoffResult => ({ ok: false, ran: Math.max(0, at), stoppedAt: at, code, error, results });
+    const problem = handoffProblem(handoff);
+    if (problem) return stop(-1, 'bad_args', problem);
+    const h = parseHandoff(handoff, options.now ?? Date.now());
+    if (!h) return stop(-1, 'expired', 'This handoff has expired: it was not run');
+    if (!this.lastTree.size) this.context();
+    for (const [id] of this.fetched) if (!this.byId.get(id)?.deref()?.isConnected) this.fetched.delete(id);
+    if (h.route) {
+      const r = await this.run({ navigate: h.route });
+      results.push(r);
+      if (!r.ok) return stop(-1, r.code ?? 'failed', r.error ?? 'Could not go there');
+    }
+    for (const [i, c] of h.calls.entries()) {
+      const r = await this.run({ node: c.key, op: c.op, ...(c.args ? { args: c.args } : {}) }, options.confirm ?? this.options.confirm);
+      results.push(r);
+      if (!r.ok) return stop(i, r.code ?? 'failed', r.error ?? 'It failed');
+      // (what it changed shows before the next: a press that opens what the next one works on)
+      await (this.options.settle?.() ?? nextFrames());
+    }
+    return { ok: true, ran: h.calls.length, results };
+  }
+
+  private async allowed(policy: Policy, what: { call: Call; node?: AffordNode; tool?: ToolSpec }, confirm = this.options.confirm): Promise<CallResult | null> {
     if (policy === 'allow') return null;
     if (policy === 'deny') return { call: what.call, ok: false, code: 'denied', error: 'Not allowed: the user does this themselves' };
-    const yes = this.options.confirm ? await this.options.confirm(what) : null;
+    const yes = confirm ? await confirm(what) : null;
     if (yes === null) return { call: what.call, ok: false, needsConfirm: true, code: 'needs_confirm', error: 'Needs the user to confirm first' };
     return yes ? null : { call: what.call, ok: false, code: 'declined', error: 'The user said no' };
   }
 
-  private async run(call: Call): Promise<CallResult> {
+  private async run(call: Call, confirm = this.options.confirm): Promise<CallResult> {
     try {
       if ('navigate' in call) {
         const r = this.routes;
@@ -680,7 +736,7 @@ export class AffordKit {
         const tool = this.tools.get(call.tool);
         if (!tool) return { call, ok: false, code: 'not_found', error: `No tool ${call.tool}` };
         const spec: ToolSpec = { name: tool.name, description: tool.description, policy: tool.policy ?? 'allow' };
-        const blocked = await this.allowed(spec.policy, { call, tool: spec });
+        const blocked = await this.allowed(spec.policy, { call, tool: spec }, confirm);
         if (blocked) return blocked;
         return { call, ok: true, value: await tool.execute(call.args ?? {}) };
       }
@@ -690,7 +746,7 @@ export class AffordKit {
       const { el, node } = hit;
       const op = node.ops.find((o) => o.name === call.op);
       if (!op) return { call, ok: false, code: 'no_op', error: `${node.role} "${node.name}" has no op ${call.op} (it has: ${node.ops.map((o) => o.name).join(', ') || 'none'})` };
-      const blocked = await this.allowed(op.policy, { call, node });
+      const blocked = await this.allowed(op.policy, { call, node }, confirm);
       if (blocked) return blocked;
       const custom = this.optionsOf(el)?.ops?.find((o) => o.name === call.op);
       if (custom) return { call, ok: true, value: await custom.run(call.args ?? {}, el) };

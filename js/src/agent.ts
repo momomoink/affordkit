@@ -183,9 +183,28 @@ export const AGENT_TOOLS: AgentTool[] = [
       'See another page\'s controls without taking the user there, to plan: what is on it and the keys to act on after navigating (e.g. peek /settings/ai, then navigate there and act by key). Says whether it is current or as last seen.',
     inputSchema: { type: 'object', properties: { route: { type: 'string', description: 'e.g. /settings/ai' } }, required: ['route'] },
   },
+  {
+    name: 'ui_handoff',
+    description:
+      'Only when the user is away (the other ui_ tools answer code away): do what you can with your other tools, then leave the user a handoff for when they come back — a short message, and where to take them: route, the page to open first (one of the routes), then calls, ops to run there in order. The app usually shows it as a notification, and runs it when they tap. ' +
+      'A call names a control by its key, never its id (ids don\'t last until then): e.g. {key: "drafts.list[42]", op: "press"} to open the draft you wrote. Keep it to bringing them to the result — open the page, the item; nothing that sends, pays, deletes or can\'t be undone: they see it happen, and ops that need their yes still ask. At most 20 calls; message at most 500 characters, in the user\'s language.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'What you did and what is waiting for them, in a sentence or two' },
+        route: { type: 'string', description: 'The page to open first, e.g. /drafts' },
+        calls: {
+          type: 'array',
+          description: 'Then these, in order: { key, op, args? }',
+          items: { type: 'object', properties: { key: { type: 'string' }, op: { type: 'string' }, args: { type: 'object' } }, required: ['key', 'op'] },
+        },
+      },
+      required: ['message'],
+    },
+  },
 ];
 
-/** One of AGENT_TOOLS called by the agent → what the app should run (null for ui_look: just send the context). */
+/** One of AGENT_TOOLS called by the agent → what the app should run (null for ui_look: just send the context; ui_handoff is not one). */
 export function toCall(tool: string, args: Record<string, unknown>): Call | null {
   const obj = (v: unknown) => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});
   switch (tool) {
@@ -199,6 +218,8 @@ export function toCall(tool: string, args: Record<string, unknown>): Call | null
       return { navigate: String(args.route ?? '') };
     case 'ui_peek':
       return { peek: String(args.route ?? '') };
+    case 'ui_handoff':
+      throw new Error('ui_handoff is not a call to the app: it goes to the host (AffordRemote with onHandoff)');
   }
   throw new Error(`Not an AffordKit tool: ${tool}`);
 }

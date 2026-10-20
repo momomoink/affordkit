@@ -21,7 +21,8 @@ myChannel.onRequest((String id, Map<String, Object?> request) async {
 - Answer every request: `answer` never throws, it answers with `{error, code}`.
 - Tag each request with the id of the app instance the user is chatting from (a uuid made at startup), so another device of the
   same user doesn't answer it.
-- Requests may come while the app is in the background, where no frames are drawn: give the agent's side a timeout.
+- Requests may come while the app is in the background, where no frames are drawn: give the agent's side a timeout, and tell
+  it when the app goes to the background and comes back (its `present`), so the agent knows to leave a [handoff](handoffs.md).
 - `onAct` lets you show the user each step: a ring where the agent is about to tap, a line saying what it is doing. Hide your own
   chat sheet while the agent works, so the user sees the screen it works on, and bring it back when the agent's turn ends.
 
@@ -37,12 +38,18 @@ ui.seen(screenSentWithTheMessage);                           // optional: the sc
 ```
 
 - `ui.tools()`: the five tools (`ui_look`, `ui_act`, `ui_tool`, `ui_navigate`, `ui_peek`; `ui_tool` only when the app has tools of
-  its own), each with `name`, `description` and `inputSchema`.
+  its own; `ui_handoff` too with `onHandoff`), each with `name`, `description` and `inputSchema`.
 - `ui.has(name)`: whether a tool the model called is one of these.
 - `ui.handle(name, input)`: runs one and completes with a `ToolAnswer`: `text`, `isError`, `code`, `images`, `context`. It never
   throws: a failure is an answer with `isError` and a `code`.
 
 `wholeScreen: true` gives the whole tree after every act instead of what changed.
+
+### When the user has left
+
+`present` says whether the user is in the app (`kit.agent()` follows the app's lifecycle by itself); while it says no, the screen
+tools answer `ErrorCode.away` at once. `onHandoff` adds a sixth tool, `ui_handoff`, for the agent to leave the user a message and
+the calls that take them to what it did when they come back. See [Handoffs](handoffs.md).
 
 ### Model APIs
 
@@ -102,6 +109,8 @@ When most of the screen changed, the answer is the whole new screen. `describe(c
 | `unreachable` | `unreachable` | something is over it and it has no callback to call |
 | `timeout` | `timeout` | the app did not answer in time |
 | `unavailable` | `unavailable` | no app to work, or it could not answer |
+| `away` | `away` | the user is not in the app now (`present` says so): the screen can't be worked; leave a handoff |
+| `expired` | `expired` | a handoff past its `expiresAt`: not run |
 | `failed` | `failed` | anything else that went wrong doing it |
 
 Your own ops and tools can say which by throwing `AffordError(ErrorCode.x, 'message')`.

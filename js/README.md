@@ -183,9 +183,11 @@ Now at /reply/7 (was /message/7) — can go back.
 ```
 
 Other stacks: `openaiTools` / `openaiResult` (Chat Completions), `openaiResponsesTools` / `openaiResponsesResult`, `mcpHandlers`
-(serve the page's screen as an MCP server's tools), `runners` (LangChain, the AI SDK, a loop of your own). A failed call carries a
-code: `not_found`, `no_op`, `bad_args`, `denied`, `needs_confirm`, `declined`, `disabled`, `unreachable`, `timeout`,
-`unavailable`, `failed`. More in [Connecting an agent](https://github.com/momomoink/affordkit/blob/main/docs/js/connecting-an-agent.md).
+(serve the page's screen as an MCP server's tools), `runners` (LangChain, the AI SDK, a loop of your own). When the user has left
+the app (`present`), the screen tools answer `away`, and with `onHandoff` the agent can leave them a handoff (`ui_handoff`) that
+the page runs when they come back: see [Handoffs](https://github.com/momomoink/affordkit/blob/main/docs/js/handoffs.md).
+A failed call carries a code: `not_found`, `no_op`, `bad_args`, `denied`, `needs_confirm`, `declined`, `disabled`, `unreachable`, `timeout`,
+`unavailable`, `away`, `expired`, `failed`. More in [Connecting an agent](https://github.com/momomoink/affordkit/blob/main/docs/js/connecting-an-agent.md).
 
 ## What to let the agent do
 
@@ -225,4 +227,6 @@ Then ask it to "add AffordKit to this app". Other ways to install it are in the
 
 - [Getting started: web](https://github.com/momomoink/affordkit/blob/main/docs/js/getting-started.md): every option, in more detail.
 - [Concepts](https://github.com/momomoink/affordkit/blob/main/docs/js/concepts.md): the tree, ops, policies, containers, pages.
+- [Handoffs](https://github.com/momomoink/affordkit/blob/main/docs/js/handoffs.md): when the user has left the app, the agent
+  leaves a message and the calls that take them to what it did (`ui_handoff`, `kit.runHandoff`).
 - [Protocol](https://github.com/momomoink/affordkit/blob/main/docs/protocol.md): the JSON.

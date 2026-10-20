@@ -20,6 +20,9 @@
 //
 //   ListView.builder(itemBuilder: (_, i) => MailRow(mails[i]).affordItem(mails[i].id, index: i), ...)
 //       .affordContainer('Inbox', key: 'mail.list', kind: 'list', count: () => mails.length, items: (offset, limit, query) => ...);
+//
+// Handoffs: what an agent left for a user who was away (see Handoff), run when they come back — they tapped its notification and
+// the app fetched it by id from its own server: `await AffordKit.instance.runHandoff(handoff)` goes to its route and runs its calls.
 
 import 'dart:async';
 import 'dart:convert';
@@ -721,6 +724,38 @@ class ActEvent {
 
   /// A finger can't reach it (a page under the one on top, a dialog over it): the op runs without a tap the user sees.
   final bool behind;
+}
+
+/// What came of running a handoff ([AffordKit.runHandoff]): whether it all ran, how many of its calls did, and where and why it
+/// stopped.
+class HandoffResult {
+  /// The handoff ran [ran] calls, all of them when [ok].
+  const HandoffResult({
+    required this.ok,
+    required this.ran,
+    this.results = const [],
+    this.stoppedAt,
+    this.code,
+    this.error,
+  });
+
+  /// Whether it all ran.
+  final bool ok;
+
+  /// How many of its calls ran (its route not counted).
+  final int ran;
+
+  /// Each step's result: the route's first, when it has one.
+  final List<CallResult> results;
+
+  /// The call it stopped at (its index), or -1 before any: invalid, expired, or its route could not be gone to.
+  final int? stoppedAt;
+
+  /// Why it stopped.
+  final ErrorCode? code;
+
+  /// Why it stopped, in words.
+  final String? error;
 }
 
 /// The tree of afforded widgets on screen, and the agent's calls run on them.
@@ -1437,11 +1472,86 @@ class AffordKit {
     };
   }
 
-  /// An agent in the app itself: its tools on this kit, straight (no transport).
+  /// An agent in the app itself: its tools on this kit, straight (no transport). [present] says whether the user is in the app
+  /// (default: the app's lifecycle — not paused, hidden or detached); [onHandoff] takes the handoffs it leaves when they are not.
   AffordAgent agent({
     Duration timeout = const Duration(seconds: 45),
     bool wholeScreen = false,
-  }) => AffordAgent(send: answer, timeout: timeout, wholeScreen: wholeScreen);
+    bool Function()? present,
+    FutureOr<String?> Function(Handoff handoff)? onHandoff,
+    Duration handoffTtl = const Duration(hours: 24),
+  }) => AffordAgent(
+    send: answer,
+    timeout: timeout,
+    wholeScreen: wholeScreen,
+    present: present ?? _inForeground,
+    onHandoff: onHandoff,
+    handoffTtl: handoffTtl,
+  );
+
+  /// Whether the app is in the foreground (frames are drawn): not paused, hidden or detached.
+  static bool _inForeground() => !const {
+    AppLifecycleState.paused,
+    AppLifecycleState.hidden,
+    AppLifecycleState.detached,
+  }.contains(WidgetsBinding.instance.lifecycleState);
+
+  /// A handoff an agent left (see [Handoff]), run when the user is back — they tapped its notification: its route first (shown
+  /// before going on), then its calls in order, as the agent's calls run (policies and all, each step through [onAct]: deny is never
+  /// run, confirm asks — [confirm] here, else the kit's; without either it stops there, not done). Stops at the first that fails.
+  /// An expired one is not run.
+  ///
+  /// Only run one your app got over its own authenticated channel (fetched by the id in the notification, never taken from the
+  /// notification or a link itself), and only once.
+  Future<HandoffResult> runHandoff(
+    Handoff handoff, {
+    Future<bool> Function(Call call, {AffordNode? node, ToolSpec? tool})?
+    confirm,
+    DateTime? now,
+  }) async {
+    final results = <CallResult>[];
+    HandoffResult stop(int at, ErrorCode code, String error) => HandoffResult(
+      ok: false,
+      ran: math.max(0, at),
+      stoppedAt: at,
+      code: code,
+      error: error,
+      results: results,
+    );
+    final problem = handoffProblem(handoff.toJson());
+    if (problem != null) return stop(-1, ErrorCode.badArgs, problem);
+    if (handoff.isExpired(now)) {
+      return stop(
+        -1,
+        ErrorCode.expired,
+        'This handoff has expired: it was not run',
+      );
+    }
+    if (_last.isEmpty) context();
+    _fetched.removeWhere((_, v) => !v.$1.mounted);
+    final route = handoff.route;
+    if (route != null) {
+      final r = await _run(NavigateCall(route));
+      results.add(r);
+      if (!r.ok) {
+        return stop(
+          -1,
+          r.code ?? ErrorCode.failed,
+          r.error ?? 'Could not go there',
+        );
+      }
+    }
+    for (final (i, c) in handoff.calls.indexed) {
+      final r = await _run(c.toCall(), confirm: confirm);
+      results.add(r);
+      if (!r.ok) {
+        return stop(i, r.code ?? ErrorCode.failed, r.error ?? 'It failed');
+      }
+      // (what it changed shows before the next: a press that opens what the next one works on)
+      await _frames();
+    }
+    return HandoffResult(ok: true, ran: handoff.calls.length, results: results);
+  }
 
   /// Run the agent's calls in order; the results, and the context afterwards (its next round).
   Future<ExecuteResult> execute(List<Call> calls) async {
@@ -1465,6 +1575,7 @@ class AffordKit {
     Call call, {
     AffordNode? node,
     ToolSpec? tool,
+    Future<bool> Function(Call call, {AffordNode? node, ToolSpec? tool})? ask,
   }) async {
     if (policy == Policy.allow) return null;
     if (policy == Policy.deny) {
@@ -1475,7 +1586,7 @@ class AffordKit {
         error: 'Not allowed: the user does this themselves',
       );
     }
-    final ask = confirm;
+    ask ??= confirm;
     if (ask == null) {
       return CallResult(
         call,
@@ -1495,7 +1606,12 @@ class AffordKit {
           );
   }
 
-  Future<CallResult> _run(Call call) async {
+  /// One call run ([confirm]: who is asked before a confirm op, over the kit's own).
+  Future<CallResult> _run(
+    Call call, {
+    Future<bool> Function(Call call, {AffordNode? node, ToolSpec? tool})?
+    confirm,
+  }) async {
     try {
       switch (call) {
         case NavigateCall(:final route):
@@ -1547,7 +1663,12 @@ class AffordKit {
             );
           }
           final spec = ToolSpec(t.name, t.description, policy: t.policy);
-          final blocked = await _allowed(t.policy, call, tool: spec);
+          final blocked = await _allowed(
+            t.policy,
+            call,
+            tool: spec,
+            ask: confirm,
+          );
           if (blocked != null) return blocked;
           return CallResult(call, ok: true, value: await t.execute(args));
         case NodeCall(:final node, :final op, :final args):
@@ -1580,7 +1701,12 @@ class AffordKit {
                   '${n.role.wire} "${n.name}" has no op $op (it has: ${n.ops.map((o) => o.name).join(', ')})',
             );
           }
-          final blocked = await _allowed(spec.policy, call, node: n);
+          final blocked = await _allowed(
+            spec.policy,
+            call,
+            node: n,
+            ask: confirm,
+          );
           if (blocked != null) return blocked;
           final custom = e.widget.ops.where((o) => o.name == op).firstOrNull;
           final containerOp =

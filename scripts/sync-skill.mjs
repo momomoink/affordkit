@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const docs = path.join(root, 'docs');
 const refs = path.join(root, 'skills/affordkit/references');
 // Each platform's docs, and the protocol both share (the docs' own index pages are not needed: SKILL.md is the index)
-const files = ['protocol.md', ...['flutter', 'js'].flatMap((p) => ['concepts.md', 'getting-started.md', 'what-to-expose.md', 'connecting-an-agent.md'].map((f) => `${p}/${f}`))];
+const files = ['protocol.md', ...['flutter', 'js'].flatMap((p) => ['concepts.md', 'getting-started.md', 'what-to-expose.md', 'connecting-an-agent.md', 'handoffs.md'].map((f) => `${p}/${f}`))];
 const check = process.argv.includes('--check');
 
 // Links within docs/ stay as they are; links out of it point at the repository

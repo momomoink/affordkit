@@ -9,6 +9,7 @@ then presses, types, scrolls and navigates through calls your app runs under its
 | [Getting started](getting-started.md) | Adding AffordKit to a web app: plain DOM, React, Vue, Svelte, anything else. |
 | [What to expose](what-to-expose.md) | Deciding what the agent may do, what needs the user's yes, and what it must never touch. |
 | [Connecting an agent](connecting-an-agent.md) | Wiring the page to the model: transports, `AffordRemote`, answers, error codes, the Anthropic / OpenAI / MCP shapes. |
+| [Handoffs](handoffs.md) | When the user has left the app: the agent leaves a message and the calls that take them to its work. |
 | [Protocol](../protocol.md) | The JSON, for writing your own agent side. |
 
 There is also an [agent skill](https://github.com/momomoink/affordkit/blob/main/skills/affordkit/SKILL.md) that walks a coding

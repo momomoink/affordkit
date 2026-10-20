@@ -129,3 +129,10 @@ The agent gets five tools: `ui_look` (the screen, optionally with a picture of i
 app tool), `ui_navigate` (a route, or back) and `ui_peek` (another page). After each act it is told what changed on screen, not
 the whole tree again: the route if it changed, and the nodes that came (`+`), went (`-`) or changed (`~`). Failed calls carry a
 code (`not_found`, `denied`, `needs_confirm`, ...). See [Connecting an agent](connecting-an-agent.md).
+
+## Handoffs
+
+When the user has left the app (it is in the background, drawing no frames), its screen can't be worked: the screen tools answer
+`away`. The agent does what it can with your backend's tools, and may leave a **handoff** (`ui_handoff`): a short message, and
+calls by key that take the user to what it did. Your app tells the user (a notification), and runs it when they come back
+(`kit.runHandoff`), under the same policies. See [Handoffs](handoffs.md).

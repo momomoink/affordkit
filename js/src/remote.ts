@@ -6,10 +6,13 @@
  *   const ui = new AffordRemote({ send: (request) => socket.ask(request) });   // the app: socket.onAsk((r) => kit.answer(r))
  *   tools.push(...anthropicTools(ui.tools()));
  *   const { text, isError } = await ui.handle(toolUse.name, toolUse.input);   // → the tool_result
+ *
+ * When the user has left the app (present says so), the screen tools answer code away at once; with onHandoff the agent also gets
+ * ui_handoff, to leave the user a message and the calls that take them to what it did (see Handoff).
  */
 
 import { AGENT_TOOLS, describe, describeChange, describeResult, toCall, type AgentTool } from './agent.js';
-import { AffordError, isImage, type AffordContext, type Call, type ErrorCode, type ImageValue, type UiAnswer, type UiRequest } from './protocol.js';
+import { AffordError, findRoute, handoffProblem, isImage, parseHandoff, type AffordContext, type Call, type ErrorCode, type Handoff, type ImageValue, type UiAnswer, type UiRequest } from './protocol.js';
 
 export interface RemoteOptions {
   /** Send a request to the app and resolve with its answer (kit.answer on the app's side). */
@@ -18,10 +21,23 @@ export interface RemoteOptions {
   timeoutMs?: number;
   /** The screen after an act: what changed (default: fewer tokens), or the whole tree each time. */
   screen?: 'changes' | 'whole';
-  /** Which of AGENT_TOOLS to offer (default: all — ui_tool once the app is seen to have tools of its own). */
+  /** Which of AGENT_TOOLS to offer (default: all — ui_tool once the app is seen to have tools of its own, ui_handoff with onHandoff). */
   tools?: string[];
   /** Most nodes in a tree as text. */
   maxNodes?: number;
+  /**
+   * Whether the user is in the app now (e.g. () => document.visibilityState === 'visible', or the app's lifecycle as its channel
+   * last reported it). While it says no, every tool but ui_handoff answers code away at once, without asking the app (the app's own
+   * tools run in the app too). Default: always.
+   */
+  present?: () => boolean;
+  /**
+   * Where a handoff the agent leaves goes (ui_handoff, checked first): keep it and tell the user — a notification with its id,
+   * usually. What it resolves with ("notification sent") is told the agent. Without it, ui_handoff isn't offered.
+   */
+  onHandoff?: (handoff: Handoff) => Promise<string | void> | string | void;
+  /** How long a handoff stays good (default 24 h): its expiresAt. */
+  handoffTtlMs?: number;
 }
 
 /** A tool's answer: the text for the agent (its tool result), whether it failed and why, and the screen it left. */
@@ -52,7 +68,10 @@ export class AffordRemote {
   /** The tools to give the agent. */
   tools(): AgentTool[] {
     const names = this.options.tools;
-    return AGENT_TOOLS.filter((t) => (names ? names.includes(t.name) : t.name !== 'ui_tool' || !this.last || this.last.tools.length > 0));
+    return AGENT_TOOLS.filter((t) => {
+      if (t.name === 'ui_handoff' && !this.options.onHandoff) return false;
+      return names ? names.includes(t.name) : t.name !== 'ui_tool' || !this.last || this.last.tools.length > 0;
+    });
   }
 
   /** Whether a tool the agent called is one of these. */
@@ -62,6 +81,11 @@ export class AffordRemote {
 
   /** Run a tool the agent called: its answer as text. Never throws: a failure is an answer with isError and a code. */
   async handle(name: string, input: Record<string, unknown> = {}): Promise<ToolAnswer> {
+    if (name === 'ui_handoff') return this.handoff(input ?? {});
+    // The user has left: nothing on the screen can be done now (and the app may not even answer)
+    if (this.options.present?.() === false && AGENT_TOOLS.some((t) => t.name === name)) {
+      return failed('away', `The user is not in the app right now (it is in the background): the screen can't be looked at or worked. Use your other tools${this.options.onHandoff ? ', and leave a handoff (ui_handoff) for when they come back' : ''}.`);
+    }
     let call: Call | null;
     try {
       call = toCall(name, input ?? {});
@@ -85,6 +109,26 @@ export class AffordRemote {
     const screen = 'peek' in call ? '' : this.options.screen === 'whole' || !before ? `The screen now:\n${describe(answer.context, max)}` : describeChange(before, answer.context, max);
     const image = isImage(r.value) && r.value.data ? [{ mime: r.value.mime, data: r.value.data }] : [];
     return { text: [said, screen].filter(Boolean).join('\n\n'), isError: !r.ok, ...(r.code ? { code: r.code } : {}), context: answer.context, ...(image.length ? { images: image } : {}) };
+  }
+
+  /** ui_handoff: the agent's handoff checked (its route against the routes seen), with its expiry, and given to the host. */
+  private async handoff(input: Record<string, unknown>): Promise<ToolAnswer> {
+    const give = this.options.onHandoff;
+    if (!give) return failed('not_found', 'This app takes no handoffs');
+    // (its id and expiry are the host's to say, not the agent's)
+    const draft: Record<string, unknown> = { ...input, v: 1, expiresAt: Date.now() + (this.options.handoffTtlMs ?? 24 * 3600_000) };
+    delete draft.id;
+    const problem = handoffProblem(draft);
+    const handoff = problem ? null : parseHandoff(draft);
+    if (!handoff) return failed('bad_args', problem ?? 'Not a handoff');
+    const routes = this.last?.route?.routes;
+    if (handoff.route && routes?.length && !findRoute(routes, handoff.route)) return failed('bad_args', `No route ${handoff.route} (the routes: ${routes.map((r) => r.path).join(', ')})`);
+    try {
+      const said = await give(handoff);
+      return { text: `Handoff left: ${said || 'the user gets it when they come back.'}`, isError: false };
+    } catch (error) {
+      return failed(error instanceof AffordError ? error.code : 'failed', (error as Error)?.message ?? String(error));
+    }
   }
 
   private ask(request: UiRequest): Promise<UiAnswer> {
