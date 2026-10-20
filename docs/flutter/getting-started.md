@@ -10,15 +10,11 @@ including those on pages under the one on top.
 flutter pub add affordkit
 ```
 
-Until it is on pub.dev, depend on the repository:
+or add it to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  affordkit:
-    git:
-      url: https://github.com/momomoink/affordkit.git
-      ref: v0.1.0
-      path: flutter
+  affordkit: ^0.1.0
 ```
 
 To work on AffordKit and your app together, point at a local checkout in a `pubspec_overrides.yaml` next to your
@@ -83,7 +79,7 @@ uses them is covered.
 A widget the kit cannot read needs a role and its state:
 
 ```dart
-MomoSwitch(value: on, onChanged: setOn)
+FancySwitch(value: on, onChanged: setOn)
     .afford('Dark mode', role: Role.switch_, state: {'checked': on});
 ```
 

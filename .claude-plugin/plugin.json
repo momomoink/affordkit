@@ -1,5 +1,6 @@
 {
   "name": "affordkit",
+  "version": "0.1.0",
   "description": "A skill that adds AffordKit to an existing web or Flutter app and connects it to an agent",
   "author": { "name": "Rusheng Zhang" },
   "homepage": "https://github.com/momomoink/affordkit",

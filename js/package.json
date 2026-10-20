@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Your app's UI, for AI agents to see and use: controls become a tree with the operations you'd expect of them, and agents act on it under your app's policies.",
   "license": "MIT",
+  "author": "Rusheng Zhang (https://github.com/momomoink)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/momomoink/affordkit.git",
@@ -33,18 +34,31 @@
       "default": "./dist/dom.js"
     }
   },
+  "typesVersions": {
+    "*": {
+      "dom": [
+        "dist/dom.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist",
-    "src"
+    "src",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test"
   },
   "devDependencies": {
+    "@types/node": "^18.19.130",
     "happy-dom": "^21.0.3",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"

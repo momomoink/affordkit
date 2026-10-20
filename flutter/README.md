@@ -29,15 +29,11 @@ Using JavaScript or TypeScript? See the [JavaScript README](https://github.com/m
 flutter pub add affordkit
 ```
 
-Before it is on pub.dev, depend on the repository:
+or add it to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  affordkit:
-    git:
-      url: https://github.com/momomoink/affordkit.git
-      ref: v0.1.0
-      path: flutter
+  affordkit: ^0.1.0
 ```
 
 To work on AffordKit and your app together, add a `pubspec_overrides.yaml` beside your `pubspec.yaml` and keep it out of git:
@@ -97,7 +93,7 @@ and checkboxes, `select` for tabs and radios, `read` for text, `view` (a picture
 Give a widget of your own its role and state:
 
 ```dart
-MomoSwitch(value: on, onChanged: setOn).afford('Dark mode', role: Role.switch_, state: {'checked': on});
+FancySwitch(value: on, onChanged: setOn).afford('Dark mode', role: Role.switch_, state: {'checked': on});
 ```
 
 Standard ops tap the widget, so anything that responds to a tap works. When a tap is not the action you want, add an op of your

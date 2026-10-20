@@ -1,0 +1,16 @@
+name: affordkit_example
+description: A small app whose controls are in AffordKit's tree, for an agent to see and use.
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+  flutter: '>=3.47.6'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  affordkit:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

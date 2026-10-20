@@ -7,3 +7,4 @@ dist/
 .dart_tool/
 build/
 flutter/pubspec.lock
+flutter/example/pubspec.lock

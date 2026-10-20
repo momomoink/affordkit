@@ -13,8 +13,8 @@ npm install affordkit
 The package ships ES modules with types: `affordkit` (the protocol and the agent's side, no DOM) and `affordkit/dom` (the runtime
 in the page).
 
-Until it is on npm, install it from the repository with pnpm (`pnpm add "github:momomoink/affordkit#v0.1.0&path:/js"`), or clone
-the repository and `npm install ../affordkit/js`.
+To work on AffordKit and your app together, clone the repository beside your app and `npm install ../affordkit/js` (keep that
+out of your committed `package.json`).
 
 ## Create the kit
 

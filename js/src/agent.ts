@@ -158,7 +158,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: 'ui_act',
     description:
-      'Do an op on a control by its id or key: e.g. read a field or a page\'s text, write into a field, press a button, toggle a switch, choose an option. Ops marked deny are for the user only; confirm ones wait for their yes. ' +
+      'Do an op on a control by its id or key: e.g. read a field or a page\'s text, write into a field, press a button, toggle a switch, pick an option. Ops marked deny are for the user only; confirm ones wait for their yes. ' +
       'A page or dialog node marked behind is under what shows (another page, a dialog): its controls still work, but the user does not see them act — when they are watching, go to that page first unless it is a small aside. ' +
       'A container (many of the same thing: a mail list, a thread\'s messages) shows only a preview of its entries, not their controls: fetch one with its op "item" (args: id, or index, or query) and the answer is that entry as a tree of its own, with ids and keys to act on next (e.g. item {id: "42"} on mail.list → mail.list[42].reply). "items" pages through all its entries\' keys and names. An entry\'s key — container key + [id], controls in it under that, mail.list[42].reply — can also be acted on straight away, even off screen: it is fetched (scrolled to) first. scroll_to / scroll move the container.',
     inputSchema: {
@@ -180,7 +180,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: 'ui_peek',
     description:
-      'See another page\'s controls without taking the user there, to plan: what is on it and the keys to act on after navigating (e.g. peek /settings/ai, then navigate there and choose by key). Says whether it is current or as last seen.',
+      'See another page\'s controls without taking the user there, to plan: what is on it and the keys to act on after navigating (e.g. peek /settings/ai, then navigate there and act by key). Says whether it is current or as last seen.',
     inputSchema: { type: 'object', properties: { route: { type: 'string', description: 'e.g. /settings/ai' } }, required: ['route'] },
   },
 ];

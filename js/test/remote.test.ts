@@ -91,7 +91,9 @@ describe('AffordRemote: the agent side over any transport', () => {
     expect((await mcp.list()).tools.map((t) => t.name)).toContain('ui_navigate');
     const called = await mcp.call({ params: { name: 'ui_act', arguments: { node: 'reply', op: 'press' } } });
     expect(called.isError).toBeUndefined();
-    expect(called.content[0]!.text).toContain('The screen changed:');
+    const first = called.content[0]!;
+    expect(first.type).toBe('text');
+    expect(first.type === 'text' ? first.text : '').toContain('The screen changed:');
     expect((await runners(ui)[0]!.run({})).isError).toBe(false);
   });
 });

@@ -12,12 +12,21 @@ import 'dart:convert';
 
 import 'protocol.dart';
 
+/// A JSON object.
 typedef Json = Map<String, Object?>;
 
 /// A tool the agent gets: its name, what it does, and its input's JSON schema.
 class AgentTool {
+  /// A tool named [name] that does what [description] says.
   const AgentTool(this.name, this.description, this.inputSchema);
-  final String name, description;
+
+  /// The tool's name, as the model calls it.
+  final String name;
+
+  /// What it does, for the model.
+  final String description;
+
+  /// A JSON Schema object for its input.
   final Json inputSchema;
 }
 
@@ -29,47 +38,63 @@ const agentTools = [
     {
       'type': 'object',
       'properties': {
-        'picture': {'type': 'boolean', 'description': 'Also a picture of the screen'},
+        'picture': {
+          'type': 'boolean',
+          'description': 'Also a picture of the screen',
+        },
       },
     },
   ),
   AgentTool(
     'ui_act',
-    "Do an op on a control by its id or key: e.g. read a field or a page's text, write into a field, press a button, toggle a switch, choose an option. Ops marked deny are for the user only; confirm ones wait for their yes. "
+    "Do an op on a control by its id or key: e.g. read a field or a page's text, write into a field, press a button, toggle a switch, pick an option. Ops marked deny are for the user only; confirm ones wait for their yes. "
         'A page or dialog node marked behind is under what shows (another page, a dialog): its controls still work, but the user does not see them act — when they are watching, go to that page first unless it is a small aside. '
         'A container (many of the same thing: a mail list, a thread\'s messages) shows only a preview of its entries, not their controls: fetch one with its op "item" (args: id, or index, or query) and the answer is that entry as a tree of its own, with ids and keys to act on next (e.g. item {id: "42"} on mail.list → mail.list[42].reply). "items" pages through all its entries\' keys and names. An entry\'s key — container key + [id], controls in it under that, mail.list[42].reply — can also be acted on straight away, even off screen: it is fetched (scrolled to) first. scroll_to / scroll move the container.',
     {
       'type': 'object',
       'properties': {
-        'node': {'type': 'string', 'description': "The control's id or key from the tree"},
+        'node': {
+          'type': 'string',
+          'description': "The control's id or key from the tree",
+        },
         'op': {'type': 'string', 'description': 'One of its ops'},
-        'args': {'type': 'object', 'description': 'The op\'s arguments, e.g. { "text": "…" }'},
+        'args': {
+          'type': 'object',
+          'description': 'The op\'s arguments, e.g. { "text": "…" }',
+        },
       },
       'required': ['node', 'op'],
     },
   ),
-  AgentTool("ui_tool", "Run one of the app's own tools (listed with the tree).", {
-    'type': 'object',
-    'properties': {
-      'name': {'type': 'string'},
-      'args': {'type': 'object'},
+  AgentTool(
+    "ui_tool",
+    "Run one of the app's own tools (listed with the tree).",
+    {
+      'type': 'object',
+      'properties': {
+        'name': {'type': 'string'},
+        'args': {'type': 'object'},
+      },
+      'required': ['name'],
     },
-    'required': ['name'],
-  }),
+  ),
   AgentTool(
     'ui_navigate',
     "Take the user to a route of the app (listed with the tree, filling in its :params), or \"back\". The answer is the new page's tree.",
     {
       'type': 'object',
       'properties': {
-        'route': {'type': 'string', 'description': 'e.g. /settings/ai, or back'},
+        'route': {
+          'type': 'string',
+          'description': 'e.g. /settings/ai, or back',
+        },
       },
       'required': ['route'],
     },
   ),
   AgentTool(
     'ui_peek',
-    "See another page's controls without taking the user there, to plan: what is on it and the keys to act on after navigating (e.g. peek /settings/ai, then navigate there and choose by key). Says whether it is current or as last seen.",
+    "See another page's controls without taking the user there, to plan: what is on it and the keys to act on after navigating (e.g. peek /settings/ai, then navigate there and act by key). Says whether it is current or as last seen.",
     {
       'type': 'object',
       'properties': {
@@ -85,7 +110,11 @@ Json? toCall(String tool, Json args) {
   Json obj(Object? v) => v is Map ? v.cast<String, Object?>() : {};
   return switch (tool) {
     'ui_look' => null,
-    'ui_act' => {'node': '${args['node'] ?? ''}', 'op': '${args['op'] ?? ''}', 'args': obj(args['args'])},
+    'ui_act' => {
+      'node': '${args['node'] ?? ''}',
+      'op': '${args['op'] ?? ''}',
+      'args': obj(args['args']),
+    },
     'ui_tool' => {'tool': '${args['name'] ?? ''}', 'args': obj(args['args'])},
     'ui_navigate' => {'navigate': '${args['route'] ?? ''}'},
     'ui_peek' => {'peek': '${args['route'] ?? ''}'},
@@ -95,7 +124,9 @@ Json? toCall(String tool, Json args) {
 
 // ---------------- as text ----------------
 
-List<Json> _list(Object? v) => [for (final x in (v as List? ?? const [])) (x as Map).cast<String, Object?>()];
+List<Json> _list(Object? v) => [
+  for (final x in (v as List? ?? const [])) (x as Map).cast<String, Object?>(),
+];
 Json? _map(Object? v) => v is Map ? v.cast<String, Object?>() : null;
 String _q(Object? s) => jsonEncode(s ?? '');
 
@@ -115,7 +146,9 @@ List<String> _routeLines(Json route) {
           if (_map(e.value) case final p?)
             ':${e.key}${p['values'] is List ? ' ∈ {${(p['values'] as List).join(', ')}}' : ''}${p['description'] != null ? ' (${p['description']})' : ''}',
       ];
-      lines.add('  ${r['path']} — ${r['description']}${ps.isNotEmpty ? '; ${ps.join('; ')}' : ''}');
+      lines.add(
+        '  ${r['path']} — ${r['description']}${ps.isNotEmpty ? '; ${ps.join('; ')}' : ''}',
+      );
     }
   }
   return lines;
@@ -127,18 +160,33 @@ String _nodeLine(Json n) {
   var entries = (_map(n['state']) ?? const {}).entries.toList();
   if (n['role'] == 'container') {
     final s = _map(n['state']) ?? const {};
-    final count = s['count'], first = s['first'], last = s['last'], kind = s['kind'];
+    final count = s['count'],
+        first = s['first'],
+        last = s['last'],
+        kind = s['kind'];
     list =
         '${kind != null ? ' ($kind)' : ''}${count is num ? ' $count entr${count == 1 ? 'y' : 'ies'}' : ''}${first is num ? ', showing $first–$last' : ''}${n['key'] != null ? ' (entry keys: ${n['key']}[<id>])' : ''}';
-    entries = [for (final e in entries) if (!const {'count', 'first', 'last', 'kind'}.contains(e.key)) e];
+    entries = [
+      for (final e in entries)
+        if (!const {'count', 'first', 'last', 'kind'}.contains(e.key)) e,
+    ];
   }
-  final state = entries.isNotEmpty ? ' (${entries.map((e) => e.value == true ? e.key : '${e.key}: ${e.value}').join(', ')})' : '';
-  final ops = [for (final o in _list(n['ops'])) (o['policy'] ?? 'allow') == 'allow' ? o['name'] : '${o['name']}(${o['policy']})'].join(', ');
+  final state = entries.isNotEmpty
+      ? ' (${entries.map((e) => e.value == true ? e.key : '${e.key}: ${e.value}').join(', ')})'
+      : '';
+  final ops = [
+    for (final o in _list(n['ops']))
+      (o['policy'] ?? 'allow') == 'allow'
+          ? o['name']
+          : '${o['name']}(${o['policy']})',
+  ].join(', ');
   final id = n['key'] != null ? '${n['id']} key=${n['key']}' : '${n['id']}';
   final name = '${n['name'] ?? ''}';
   final description = n['description'];
   // (what it shows, when it isn't its name already)
-  final value = n['value'] != null && n['value'] != name ? ' = ${_q(n['value'])}' : '';
+  final value = n['value'] != null && n['value'] != name
+      ? ' = ${_q(n['value'])}'
+      : '';
   return '[$id] ${n['role']}${name.isNotEmpty ? ' "$name"' : ''}$value$list$state${description != null ? ' — $description' : ''}${ops.isNotEmpty ? ' — $ops' : ''}';
 }
 
@@ -177,18 +225,28 @@ String describe(Json context, {int maxNodes = 400}) {
   final tools = _list(context['tools']);
   return [
     if (_map(context['route']) case final r?) ..._routeLines(r),
-    if (tools.isNotEmpty) 'Tools: ${tools.map((t) => '${t['name']}${(t['policy'] ?? 'allow') != 'allow' ? '(${t['policy']})' : ''} — ${t['description']}').join('; ')}',
+    if (tools.isNotEmpty)
+      'Tools: ${tools.map((t) => '${t['name']}${(t['policy'] ?? 'allow') != 'allow' ? '(${t['policy']})' : ''} — ${t['description']}').join('; ')}',
     ..._treeLines(_map(context['root']) ?? const {}, maxNodes),
   ].join('\n');
 }
 
 /// What changed on screen between two contexts (their JSON), as text: the route if it changed, then the nodes that came (+), went
 /// (-) or changed (~). When most of the screen changed, the whole new screen instead. Nodes are matched by key, else id.
-String describeChange(Json before, Json after, {int maxNodes = 400, double wholeOver = 0.5}) {
+String describeChange(
+  Json before,
+  Json after, {
+  int maxNodes = 400,
+  double wholeOver = 0.5,
+}) {
   Map<String, (Json, String, Json?)> flat(Json root) {
     final out = <String, (Json, String, Json?)>{};
     void walk(Json n, Json? parent) {
-      out['${n['key'] ?? n['id']}'] = (n, _nodeLine(n) + _previewLines(n, ' ').join(), parent);
+      out['${n['key'] ?? n['id']}'] = (
+        n,
+        _nodeLine(n) + _previewLines(n, ' ').join(),
+        parent,
+      );
       for (final c in _list(n['children'])) {
         walk(c, n);
       }
@@ -200,23 +258,48 @@ String describeChange(Json before, Json after, {int maxNodes = 400, double whole
 
   final was = flat(_map(before['root']) ?? const {});
   final now = flat(_map(after['root']) ?? const {});
-  final came = [for (final e in now.entries) if (!was.containsKey(e.key)) e.value];
-  final went = [for (final e in was.entries) if (!now.containsKey(e.key)) e.value];
-  final changed = [for (final e in now.entries) if (was.containsKey(e.key) && was[e.key]!.$2 != e.value.$2) e.value];
+  final came = [
+    for (final e in now.entries)
+      if (!was.containsKey(e.key)) e.value,
+  ];
+  final went = [
+    for (final e in was.entries)
+      if (!now.containsKey(e.key)) e.value,
+  ];
+  final changed = [
+    for (final e in now.entries)
+      if (was.containsKey(e.key) && was[e.key]!.$2 != e.value.$2) e.value,
+  ];
   final lines = <String>[];
   final from = _map(before['route'])?['current'];
   final to = _map(after['route'])?['current'];
-  if (to != null && to != from) lines.add('Now at $to${from != null ? ' (was $from)' : ''}${_map(after['route'])?['canGoBack'] == true ? ' — can go back' : ''}.');
-  if (came.length + went.length > (now.length * wholeOver).clamp(4, double.infinity)) {
-    return [...lines, 'The screen now:', describe(after, maxNodes: maxNodes)].join('\n');
+  if (to != null && to != from) {
+    lines.add(
+      'Now at $to${from != null ? ' (was $from)' : ''}${_map(after['route'])?['canGoBack'] == true ? ' — can go back' : ''}.',
+    );
   }
-  if (came.isEmpty && went.isEmpty && changed.isEmpty) return [...lines, 'The screen did not change.'].join('\n');
+  if (came.length + went.length >
+      (now.length * wholeOver).clamp(4, double.infinity)) {
+    return [
+      ...lines,
+      'The screen now:',
+      describe(after, maxNodes: maxNodes),
+    ].join('\n');
+  }
+  if (came.isEmpty && went.isEmpty && changed.isEmpty) {
+    return [...lines, 'The screen did not change.'].join('\n');
+  }
   // A page that went under what shows (a dialog opened, a page pushed) or came back from under it: its controls didn't change, say so
-  int under(Json n) => _list(n['children']).fold(0, (sum, c) => sum + 1 + under(c));
-  String where(Json? p) => p != null && p['role'] != 'app' ? ' (in ${p['key'] ?? p['id']}${'${p['name'] ?? ''}'.isNotEmpty ? ' "${p['name']}"' : ''})' : '';
+  int under(Json n) =>
+      _list(n['children']).fold(0, (sum, c) => sum + 1 + under(c));
+  String where(Json? p) => p != null && p['role'] != 'app'
+      ? ' (in ${p['key'] ?? p['id']}${'${p['name'] ?? ''}'.isNotEmpty ? ' "${p['name']}"' : ''})'
+      : '';
   for (final (n, _, p) in came.take(maxNodes)) {
     if (_map(n['state'])?['behind'] == true) {
-      lines.add('+ [${n['id']}] ${n['role']}${'${n['name'] ?? ''}'.isNotEmpty ? ' "${n['name']}"' : ''} (behind) — now under what shows: its ${under(n)} controls still work, unseen');
+      lines.add(
+        '+ [${n['id']}] ${n['role']}${'${n['name'] ?? ''}'.isNotEmpty ? ' "${n['name']}"' : ''} (behind) — now under what shows: its ${under(n)} controls still work, unseen',
+      );
       continue;
     }
     lines
@@ -224,8 +307,13 @@ String describeChange(Json before, Json after, {int maxNodes = 400, double whole
       ..addAll(_previewLines(n, '    '));
   }
   for (final (n, _, _) in went.take(maxNodes)) {
-    final back = _map(n['state'])?['behind'] == true && _list(n['children']).any((c) => now.containsKey('${c['key'] ?? c['id']}'));
-    lines.add('- [${n['key'] ?? n['id']}] ${n['role']}${'${n['name'] ?? ''}'.isNotEmpty ? ' "${n['name']}"' : ''}${back ? ' — on top again: its controls show' : ''}');
+    final back =
+        _map(n['state'])?['behind'] == true &&
+        _list(n['children'])
+            .any((c) => now.containsKey('${c['key'] ?? c['id']}'));
+    lines.add(
+      '- [${n['key'] ?? n['id']}] ${n['role']}${'${n['name'] ?? ''}'.isNotEmpty ? ' "${n['name']}"' : ''}${back ? ' — on top again: its controls show' : ''}',
+    );
   }
   for (final (n, _, _) in changed.take(maxNodes)) {
     lines
@@ -241,7 +329,8 @@ String describePage(Json view, {int maxNodes = 300}) {
   final how = switch (source) {
     'live' => 'showing now',
     'preview' => 'built off screen just now, as it would open',
-    'seen' => 'as it was when it last showed${view['seenAt'] != null ? ' (${view['seenAt']})' : ''}',
+    'seen' =>
+      'as it was when it last showed${view['seenAt'] != null ? ' (${view['seenAt']})' : ''}',
     _ => 'never seen: only what the route says',
   };
   final route = view['route'], pattern = view['pattern'];
@@ -269,37 +358,73 @@ String describeItems(Json page) {
       : 'No items${offset > 0 ? ' from $offset' : ''}${count != null ? ' ($count in all)' : ''}.';
   return [
     head,
-    for (final i in items) '  [${i['key'] ?? i['id']}]${i['index'] != null ? ' #${i['index']}' : ''} ${_q(i['name'])}${i['description'] != null ? ' — ${i['description']}' : ''}',
+    for (final i in items)
+      '  [${i['key'] ?? i['id']}]${i['index'] != null ? ' #${i['index']}' : ''} ${_q(i['name'])}${i['description'] != null ? ' — ${i['description']}' : ''}',
   ].join('\n');
 }
 
 /// A picture as text (the picture itself goes beside it, where the agent's stack can take one).
 String describeImage(Json v) {
-  final size = v['width'] != null && v['height'] != null ? '${v['width']}×${v['height']} ' : '';
-  return v['data'] != null ? '(A picture, $size${v['mime']}: attached.)' : '(A picture at ${v['url'] ?? 'an unknown place'}: it could not be read here.)';
+  final size = v['width'] != null && v['height'] != null
+      ? '${v['width']}×${v['height']} '
+      : '';
+  return v['data'] != null
+      ? '(A picture, $size${v['mime']}: attached.)'
+      : '(A picture at ${v['url'] ?? 'an unknown place'}: it could not be read here.)';
 }
 
 /// A result (its JSON) as text for the agent.
 String describeResult(Json r) {
   final call = _map(r['call']) ?? const {};
-  if (r['ok'] != true) return r['needsConfirm'] == true ? 'Waiting: ${r['error']}' : 'Failed${r['code'] != null ? ' (${r['code']})' : ''}: ${r['error']}';
+  if (r['ok'] != true) {
+    return r['needsConfirm'] == true
+        ? 'Waiting: ${r['error']}'
+        : 'Failed${r['code'] != null ? ' (${r['code']})' : ''}: ${r['error']}';
+  }
   final value = r['value'];
-  if (call.containsKey('peek') && value is Map) return describePage(value.cast());
-  if (call.containsKey('navigate')) return 'Now at ${value ?? call['navigate']}.';
-  if (call['op'] == 'items' && value is Map && value['items'] is List) return describeItems(value.cast());
-  if (call['op'] == 'item' && value is Map && value['root'] != null) return describeItem(value.cast());
-  if (value is Map && value['type'] == 'image') return describeImage(value.cast());
-  return value == null ? 'Done.' : (value is String ? value : jsonEncode(value));
+  if (call.containsKey('peek') && value is Map) {
+    return describePage(value.cast());
+  }
+  if (call.containsKey('navigate')) {
+    return 'Now at ${value ?? call['navigate']}.';
+  }
+  if (call['op'] == 'items' && value is Map && value['items'] is List) {
+    return describeItems(value.cast());
+  }
+  if (call['op'] == 'item' && value is Map && value['root'] != null) {
+    return describeItem(value.cast());
+  }
+  if (value is Map && value['type'] == 'image') {
+    return describeImage(value.cast());
+  }
+  return value == null
+      ? 'Done.'
+      : (value is String ? value : jsonEncode(value));
 }
 
 // ---------------- the agent's side ----------------
 
 /// A tool's answer: the text for the agent (its tool result), whether it failed and why, and the screen it left (JSON).
 class ToolAnswer {
-  const ToolAnswer(this.text, {this.isError = false, this.code, this.context, this.images = const []});
+  /// An answer with [text] for the agent.
+  const ToolAnswer(
+    this.text, {
+    this.isError = false,
+    this.code,
+    this.context,
+    this.images = const [],
+  });
+
+  /// The tool result's text.
   final String text;
+
+  /// Whether the tool failed.
   final bool isError;
+
+  /// Why it failed.
   final ErrorCode? code;
+
+  /// The screen it left, as the app's context JSON.
   final Json? context;
 
   /// Pictures that go with the text (a look with picture, an op view): to pass to the model where its stack takes images.
@@ -308,7 +433,14 @@ class ToolAnswer {
 
 /// The agent's side: its tools, run on the app through [send] (the app answers with its kit's answer()).
 class AffordAgent {
-  AffordAgent({required this.send, this.timeout = const Duration(seconds: 45), this.wholeScreen = false, this.only, this.maxNodes = 400});
+  /// An agent that reaches the app through [send].
+  AffordAgent({
+    required this.send,
+    this.timeout = const Duration(seconds: 45),
+    this.wholeScreen = false,
+    this.only,
+    this.maxNodes = 400,
+  });
 
   /// Send a request ({look: true} or {calls: [...]}) to the app and complete with its answer (AffordKit.answer there).
   final Future<Json> Function(Json request) send;
@@ -321,19 +453,30 @@ class AffordAgent {
 
   /// Which of [agentTools] to offer (default all — ui_tool once the app is seen to have tools of its own).
   final List<String>? only;
+
+  /// Most nodes of a tree written out for the model (the rest are counted).
   final int maxNodes;
 
   Json? _last;
 
   /// The screen as the agent was last shown it (e.g. sent along with the user's message): the next act answers with what changed since.
   void seen(Json? context) => _last = context;
+
+  /// The screen as the agent last saw it (the app's context JSON).
   Json? get screen => _last;
 
+  /// The tools to give the model now.
   List<AgentTool> tools() => [
     for (final t in agentTools)
-      if (only != null ? only!.contains(t.name) : t.name != 'ui_tool' || _last == null || _list(_last!['tools']).isNotEmpty) t,
+      if (only != null
+          ? only!.contains(t.name)
+          : t.name != 'ui_tool' ||
+                _last == null ||
+                _list(_last!['tools']).isNotEmpty)
+        t,
   ];
 
+  /// Whether [tools] has the tool named [name].
   bool has(String name) => tools().any((t) => t.name == name);
 
   /// Run a tool the agent called. Never throws: a failure is an answer with isError and a code.
@@ -344,49 +487,99 @@ class AffordAgent {
     } on AffordError catch (e) {
       return _failed(e.code, e.message);
     }
-    final answer = await _ask(call == null ? {'look': true, if (input?['picture'] == true) 'picture': true} : {'calls': [call]});
-    if (answer['error'] != null) return _failed(ErrorCode.fromWire(answer['code']) ?? ErrorCode.unavailable, '${answer['error']}');
+    final answer = await _ask(
+      call == null
+          ? {'look': true, if (input?['picture'] == true) 'picture': true}
+          : {
+              'calls': [call],
+            },
+    );
+    if (answer['error'] != null) {
+      return _failed(
+        ErrorCode.fromWire(answer['code']) ?? ErrorCode.unavailable,
+        '${answer['error']}',
+      );
+    }
     final context = _map(answer['context']) ?? const {};
     final before = _last;
     _last = context;
     if (call == null) {
       final shot = _map(answer['picture']);
-      final images = [if (shot?['data'] is String) (mime: '${shot!['mime']}', data: shot['data'] as String)];
-      final note = input?['picture'] == true ? (images.isNotEmpty ? '\n\n(A picture of the screen is attached.)' : "\n\n(No picture: this app can't take one.)") : '';
-      return ToolAnswer(describe(context, maxNodes: maxNodes) + note, context: context, images: images);
+      final images = [
+        if (shot?['data'] is String)
+          (mime: '${shot!['mime']}', data: shot['data'] as String),
+      ];
+      final note = input?['picture'] == true
+          ? (images.isNotEmpty
+                ? '\n\n(A picture of the screen is attached.)'
+                : "\n\n(No picture: this app can't take one.)")
+          : '';
+      return ToolAnswer(
+        describe(context, maxNodes: maxNodes) + note,
+        context: context,
+        images: images,
+      );
     }
     final results = _list(answer['results']);
-    if (results.isEmpty) return _failed(ErrorCode.unavailable, 'The app gave no result');
+    if (results.isEmpty) {
+      return _failed(ErrorCode.unavailable, 'The app gave no result');
+    }
     final r = results.first;
     final ok = r['ok'] == true;
-    final said = ok && call.containsKey('navigate') && before != null && !wholeScreen ? '' : describeResult(r);
+    final said =
+        ok && call.containsKey('navigate') && before != null && !wholeScreen
+        ? ''
+        : describeResult(r);
     final screen = call.containsKey('peek')
         ? ''
         : wholeScreen || before == null
         ? 'The screen now:\n${describe(context, maxNodes: maxNodes)}'
         : describeChange(before, context, maxNodes: maxNodes);
     final value = _map(r['value']);
-    final images = [if (value?['type'] == 'image' && value?['data'] is String) (mime: '${value!['mime']}', data: value['data'] as String)];
-    return ToolAnswer([said, screen].where((s) => s.isNotEmpty).join('\n\n'), isError: !ok, code: ErrorCode.fromWire(r['code']), context: context, images: images);
+    final images = [
+      if (value?['type'] == 'image' && value?['data'] is String)
+        (mime: '${value!['mime']}', data: value['data'] as String),
+    ];
+    return ToolAnswer(
+      [said, screen].where((s) => s.isNotEmpty).join('\n\n'),
+      isError: !ok,
+      code: ErrorCode.fromWire(r['code']),
+      context: context,
+      images: images,
+    );
   }
 
   Future<Json> _ask(Json request) async {
     try {
       return await send(request).timeout(timeout);
     } on TimeoutException {
-      return {'error': 'The app did not answer in time (it may be in the background): look again later, or do it another way', 'code': ErrorCode.timeout.wire};
+      return {
+        'error': 'The app did not answer in time (it may be in the background): look again later, or do it another way',
+        'code': ErrorCode.timeout.wire,
+      };
     } catch (e) {
-      return {'error': '$e', 'code': (e is AffordError ? e.code : ErrorCode.unavailable).wire};
+      return {
+        'error': '$e',
+        'code': (e is AffordError ? e.code : ErrorCode.unavailable).wire,
+      };
     }
   }
 
-  static ToolAnswer _failed(ErrorCode code, String error) => ToolAnswer('Failed (${code.wire}): $error', isError: true, code: code);
+  static ToolAnswer _failed(ErrorCode code, String error) =>
+      ToolAnswer('Failed (${code.wire}): $error', isError: true, code: code);
 }
 
 // ---------------- the shapes the common agent stacks take ----------------
 
 /// Anthropic Messages API tools.
-List<Json> anthropicTools(List<AgentTool> tools) => [for (final t in tools) {'name': t.name, 'description': t.description, 'input_schema': t.inputSchema}];
+List<Json> anthropicTools(List<AgentTool> tools) => [
+  for (final t in tools)
+    {
+      'name': t.name,
+      'description': t.description,
+      'input_schema': t.inputSchema,
+    },
+];
 
 /// A tool_use block run: its tool_result block.
 Future<Json> anthropicResult(AffordAgent agent, Json block) async {
@@ -399,10 +592,19 @@ Future<Json> anthropicResult(AffordAgent agent, Json block) async {
           for (final i in a.images)
             {
               'type': 'image',
-              'source': {'type': 'base64', 'media_type': i.mime, 'data': i.data},
+              'source': {
+                'type': 'base64',
+                'media_type': i.mime,
+                'data': i.data,
+              },
             },
         ];
-  return {'type': 'tool_result', 'tool_use_id': block['id'], 'content': content, if (a.isError) 'is_error': true};
+  return {
+    'type': 'tool_result',
+    'tool_use_id': block['id'],
+    'content': content,
+    if (a.isError) 'is_error': true,
+  };
 }
 
 /// OpenAI Chat Completions tools.
@@ -410,7 +612,11 @@ List<Json> openaiTools(List<AgentTool> tools) => [
   for (final t in tools)
     {
       'type': 'function',
-      'function': {'name': t.name, 'description': t.description, 'parameters': t.inputSchema},
+      'function': {
+        'name': t.name,
+        'description': t.description,
+        'parameters': t.inputSchema,
+      },
     },
 ];
 
@@ -429,16 +635,28 @@ Future<Json> openaiResult(AffordAgent agent, Json call) async {
 
 /// MCP tools/list result.
 Json mcpToolList(AffordAgent agent) => {
-  'tools': [for (final t in agent.tools()) {'name': t.name, 'description': t.description, 'inputSchema': t.inputSchema}],
+  'tools': [
+    for (final t in agent.tools())
+      {
+        'name': t.name,
+        'description': t.description,
+        'inputSchema': t.inputSchema,
+      },
+  ],
 };
 
 /// MCP tools/call: its result.
-Future<Json> mcpToolCall(AffordAgent agent, String name, Json? arguments) async {
+Future<Json> mcpToolCall(
+  AffordAgent agent,
+  String name,
+  Json? arguments,
+) async {
   final a = await agent.handle(name, arguments);
   return {
     'content': [
       {'type': 'text', 'text': a.text},
-      for (final i in a.images) {'type': 'image', 'data': i.data, 'mimeType': i.mime},
+      for (final i in a.images)
+        {'type': 'image', 'data': i.data, 'mimeType': i.mime},
     ],
     if (a.isError) 'isError': true,
   };
