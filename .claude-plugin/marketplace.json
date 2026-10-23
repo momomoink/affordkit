@@ -6,7 +6,7 @@
     {
       "name": "affordkit",
       "source": ".",
-      "description": "A skill that adds AffordKit to an existing web or Flutter app and connects it to an agent"
+      "description": "A skill that adds AffordKit to a web or Flutter app you already have (or makes one thing in it doable by its agent) and connects it to an agent"
     }
   ]
 }

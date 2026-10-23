@@ -1,15 +1,22 @@
 ---
 name: affordkit
-description: Add AffordKit to an existing web (DOM, React, Vue, Svelte) or Flutter app so an AI agent can see and operate its UI, and connect the app to an agent backend. Use when the user wants to make an app agent-operable, add or install AffordKit, tag or mark UI controls for an agent, decide what an AI assistant may do in the app, expose a custom widget or a function to an agent, or hook an agent (Anthropic, OpenAI, MCP or a custom loop) up to the app's screen.
+description: Add AffordKit to an existing web (DOM, React, Vue, Svelte) or Flutter app so an AI agent can see and operate its UI, and connect the app to an agent backend; or make one feature of an app doable by its agent (e.g. "let the assistant open and reply to mail"). Use when the user wants to make an app agent-operable, add or install AffordKit, adapt an app to AffordKit, let an assistant do something on screen, tag or mark UI controls for an agent, decide what an AI assistant may do in the app, expose a custom widget or a function to an agent, or hook an agent (Anthropic, OpenAI, MCP or a custom loop) up to the app's screen.
 license: MIT
 ---
 
-# Adding AffordKit to an existing app
+# Adding AffordKit to an app
 
-AffordKit turns an app's screen into a tree of controls an agent can read, and runs the agent's calls (press, type, scroll,
-navigate, app tools) under the app's own policies: `allow`, `confirm` (the user says yes first) or `deny` (the user's own act).
-Your job is to install it, put the app's controls into the tree with the right names, keys and policies, and connect it to the
+AffordKit is a frontend library: it turns an app's screen into a tree of controls an agent can read (the AffordTree), and runs
+the agent's calls (press, type, scroll, navigate, app tools) under the app's own policies: `allow`, `confirm` (the user says yes
+first) or `deny` (the user's own act). Its agent side (`AffordRemote`, in the npm package) gives a model on a backend the screen
+as tools. Your job is to put the app's controls into the tree with the right names, keys and policies, and connect it to the
 agent, without changing what the app does for its users.
+
+There are two jobs. Work out which one the user asked for:
+
+- **Adapt a whole app** ("add AffordKit", "make the app agent-operable"): the [workflow](#workflow) below, all of it.
+- **Make one thing doable** ("let the assistant reply to mail", "it should be able to change the theme"), in an app that may or
+  may not have AffordKit yet: [one goal](#one-goal) first; it sends you into the workflow only for the steps that goal needs.
 
 The references come in one set per platform. Find the platform in step 1, then read only that set, as you need it:
 
@@ -23,6 +30,37 @@ The references come in one set per platform. Find the platform in step 1, then r
 
 An agent backend in TypeScript (a Node server) uses [js/connecting-an-agent.md](references/js/connecting-an-agent.md) whatever
 the app is written in. [protocol.md](references/protocol.md) is the JSON both speak, for a custom agent side.
+
+## One goal
+
+When the user wants the agent to be able to do one thing, work from that goal, not from the whole app:
+
+```
+- [ ] 1. Write the goal as the user would say it, and what done looks like on screen
+- [ ] 2. Walk the path by hand: every screen and control a person touches, and where it can go another way
+- [ ] 3. Cover each step (AffordKit not in the app yet: workflow steps 1-3 first, then 10 at the end)
+- [ ] 4. Decide the policy of each step; the last irreversible one (send, pay, delete) is usually the user's
+- [ ] 5. Run the goal with the real model, several ways of saying it, and fix what it trips on
+```
+
+1. **The goal.** "Reply to Wang's mail about the meeting saying I'll be there": done is the reply page open, the text in the
+   body, Send left to the user. Write down 3 or 4 ways a user might ask, including vague ones ("answer him").
+2. **The path.** Do it in the app yourself and list what you touch: search or the list, the entry, Reply, the body. Note what
+   can block the way: the item not among those loaded, a dialog in front, a page still loading, a picker that needs a value
+   typed into it. The agent needs a way past each of them.
+3. **Cover each step.** For every control on the path, check it is in the tree with a name the model will understand and a key:
+   print the tree on that screen (step 11). What is usually missing:
+   - the search field and its submit, the "load more" button, the list as a container with `items` that searches the server;
+   - a route for the page the goal ends on (`/message/:id`), so the agent can go straight there by id, loaded or not;
+   - a custom op where a tap isn't the action (a recipient field that only takes a chip on Enter: an op that sets the
+     recipients; a mail body in an iframe the kit can't see into: a `read` op that returns its text);
+   - an app tool when the goal has no screen path at all.
+4. **Policies,** by [step 4](#4-inventory-actions-and-decide-policies)'s rules. Ask the user about anything that sends, pays,
+   deletes or changes who can see something.
+5. **Try it for real.** Send each way of asking through the actual agent and read its steps: what it looked at, what failed and
+   why. A model going in circles on a step almost always means something on the path is unnamed, missing, or answers before the
+   screen has settled (step 10). Fix the app, not the prompt, when you can. Then tell the user what now works, how they ask for
+   it, and what is left to them.
 
 ## Workflow
 
@@ -152,8 +190,22 @@ description that says what it does, a JSON schema with `enum` where values are f
   `ui.tools()` in its stack's shape (`anthropicTools`, `openaiTools`, `openaiResponsesTools`, `mcpHandlers`, `runners`) and run
   its calls with `ui.handle(name, input)` (or `anthropicResult`, `openaiResult`, ...).
 - Send `kit.context()` with each user message and call `ui.seen(context)`, so the first act answers with what changed.
-- Tell the model, in the app's system prompt, to work the screen the user sees step by step and leave denied actions (Send) to
-  the user.
+- **Let the screen settle.** Give the kit a `settle` (web: the `AffordKit` option; Flutter: `AffordKit.settle`, and
+  `AffordRoutes.settle` for navigation) that resolves once what a step set off has loaded: the list after a search, a page, a
+  mail being fetched. Wait on the app's own loading state, bounded (10-15 s). Without it the agent sees a spinner, decides
+  nothing happened and repeats itself.
+- **Turn on `kit.watchUser(true)` while the agent works** (off when its turn ends). What the user does themselves meanwhile goes
+  to the agent with its next answer (`userActions`, put at the top of the tool's answer by `AffordRemote`), with the screen as
+  it is after, so it works with their change instead of undoing it.
+- **Tell the model to work towards a goal,** in the app's system prompt: say what done looks like, take one step, check the
+  screen that comes back ("Now at …"), try another way when a step fails (a route, a search, the list) rather than the same step
+  again, and stop only when the goal shows or several ways have failed, then say plainly which. Leave denied actions (Send) to
+  the user. Give its screen steps a budget (about 25) and stop it after a few failures in a row. Pass a failed step on as a
+  failed tool call (`isError`), not as plain text.
+- **Show the user it is working.** `onAct` shows where it is about to press or type (a ring for a moment). While waiting for its
+  reply, a thin progress bar at the top with what it is on and a Stop does more than a spinner in the chat. Treat the chat as
+  one instruction at a time: once sent, put it out of the way, bring it back with the reply, and don't take another message, or
+  open the chat, until then; the server should refuse a second one too.
 - An agent running in the app itself: `kit.agent()`, no transport.
 - **When the user leaves the app** (a phone app in the background, a hidden tab): pass `present` so the screen tools answer
   `away` at once. If the app sends push notifications, also pass `onHandoff` so the agent can leave a handoff (`ui_handoff`):
@@ -168,6 +220,10 @@ description that says what it does, a JSON schema with `enum` where values are f
 - Add tests: render a screen, then assert the expected keys are in `kit.context()` and the policies of everything that sends,
   pays, deletes or changes rights. Run one round-trip: `await kit.execute([{ node: '<key>', op: 'press' }])` and check the result.
 - Run the app's existing tests: affording must not change behavior.
+- Check the screens where things open over others: a dialog, a sheet or a menu must be in the tree while it shows (the page
+  under a modal is not what the agent should act on). Something drawn in an iframe or a canvas is not seen into: give its
+  container an op that reads or does what is needed.
+- Run a real goal end to end with the actual model (see [one goal](#one-goal), step 5).
 
 ## Report to the user
 

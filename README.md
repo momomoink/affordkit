@@ -12,6 +12,14 @@
 AffordKit is a frontend library: it lets an AI agent on your backend use your app's UI the way a person would. Open that mail,
 press Reply, type the answer; the user watches it happen, on their own screen.
 
+> [!TIP]
+> **Already have an app? Add AffordKit with ease.** Install the skill in your coding agent and ask it to "add AffordKit to this
+> app": it does the whole job, and asks you what the agent may do. [How →](docs/adapt-your-app.md)
+>
+> ```text
+> /plugin install affordkit --marketplace momomoink/affordkit
+> ```
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="brand/concept-dark.svg">
@@ -101,33 +109,10 @@ They speak the same JSON.
 
 ## Let your coding agent add it
 
-[`skills/affordkit`](skills/affordkit/SKILL.md) is an agent skill: it walks a coding agent through adding AffordKit to an
-existing project, from installing it and putting the controls into the tree to deciding what the agent may do and connecting it
-to an agent backend. Install it, then ask your agent to "add AffordKit to this app".
-
-**Claude Code**, as a plugin from this repository:
-
-```text
-/plugin install affordkit --marketplace momomoink/affordkit
-```
-
-On Claude Code before 2.1.275, add the marketplace first:
-
-```text
-/plugin marketplace add momomoink/affordkit
-/plugin install affordkit@affordkit
-```
-
-The skill is then `/affordkit:affordkit`, and Claude also uses it by itself when you ask for AffordKit.
-
-**Claude Code, without the plugin:** copy `skills/affordkit/` to `~/.claude/skills/affordkit/` (all your projects) or to
-`.claude/skills/affordkit/` in one project.
-
-**claude.ai:** zip the `skills/affordkit/` folder and upload it in Settings (Features / Capabilities, under Skills). This needs a
-plan with code execution enabled.
-
-**Other agents:** the skill follows the open [Agent Skills](https://agentskills.io) format. Copy the folder to wherever your agent
-loads skills from; see its own documentation for the path.
+[`skills/affordkit`](skills/affordkit/SKILL.md) is an agent skill for adding AffordKit to an app you already have, or making one
+thing in it doable by its agent ("let the assistant reply to mail"): from installing it and putting the controls into the tree
+to deciding what the agent may do and connecting it. How to install it in Claude Code, claude.ai or another agent, and what it
+does: [Add AffordKit to the app you already have](docs/adapt-your-app.md).
 
 ## Docs
 
