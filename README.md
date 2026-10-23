@@ -9,9 +9,19 @@
 
 <p align="center">Your app's UI, for AI agents to see and use.</p>
 
-AffordKit turns your app's screen into a small tree an agent reads: each control, what it shows, its state, and what can be
-done to it. The agent answers with calls (press, type, scroll, go to a page) that your app runs under its own rules, and gets
-back what they changed on screen.
+AffordKit lets an AI agent on your backend use your app's frontend, the way a person would: open that mail, press Reply, type
+the answer.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/concept-dark.svg">
+    <img src="brand/concept.svg" alt="Your app's screen goes to AffordKit, which gives the agent a small tree of its controls (the AffordTree); the agent answers with calls (press, type, go to a page), which your app runs under your rules (allow, confirm, deny)." width="860">
+  </picture>
+</p>
+
+It turns your app's screen into a small tree an agent reads, the AffordTree: each control, what it shows, its state, and what
+can be done to it. The agent answers with calls (press, type, scroll, go to a page) that your app runs under its own rules, and
+gets back what they changed on screen.
 
 ## Pick your platform
 
