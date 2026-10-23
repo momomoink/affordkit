@@ -38,6 +38,17 @@ press Reply, type the answer; the user watches it happen, on their own screen.
 
 ## How it works
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/how-it-works-dark.svg">
+    <img src="brand/how-it-works.svg" alt="In the app, AffordKit builds the AffordTree from your UI (kit.context()) and answers requests with kit.answer(request), running each call under your rules (allow, confirm, deny) with routes, settle, watchUser and onAct. On your server, AffordRemote gives your model loop the screen as tools (ui_look, ui_act, ui_navigate, ui_peek, ui_tool, ui_handoff) in your model API's shape (anthropicTools, openaiTools, mcpHandlers), and sends requests with send(request). Over your own channel, UiRequest (look, or calls) goes to the app and UiAnswer (the tree after, results, what the user did) comes back. Packages: affordkit for Flutter, affordkit/dom for the web, affordkit for Node." width="900">
+  </picture>
+</p>
+
+In the app, the **kit** builds the AffordTree from your UI and runs what the agent asks. On your server, **** turns
+the screen into tools for your model. Between them, your own channel carries two messages: a  (look, or calls) and a
+ (the tree after, the results, and what the user did meanwhile). One round:
+
 **1. The screen becomes an AffordTree.** Only the controls that mean something, never their content until it is read:
 
 ```
