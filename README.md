@@ -45,9 +45,9 @@ press Reply, type the answer; the user watches it happen, on their own screen.
   </picture>
 </p>
 
-In the app, the **kit** builds the AffordTree from your UI and runs what the agent asks. On your server, **** turns
-the screen into tools for your model. Between them, your own channel carries two messages: a  (look, or calls) and a
- (the tree after, the results, and what the user did meanwhile). One round:
+In the app, the **kit** builds the AffordTree from your UI and runs what the agent asks. On your server, **`AffordRemote`** turns
+the screen into tools for your model. Between them, your own channel carries two messages: a `UiRequest` (look, or calls) and a
+`UiAnswer` (the tree after, the results, and what the user did meanwhile). One round:
 
 **1. The screen becomes an AffordTree.** Only the controls that mean something, never their content until it is read:
 
