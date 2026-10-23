@@ -137,3 +137,28 @@ describe('a virtualized list with no items given: searched by scrolling through 
     expect(box.textContent).toContain('Mail 270');
   });
 });
+
+describe('AffordRemote: what the user did meanwhile', () => {
+  it('puts what the user did themselves first, then the screen as it is after it', async () => {
+    const tree = { protocol: 1, route: { current: '/message/42', routes: [] }, tools: [], root: { id: 'app', role: 'app', name: '', ops: [], children: [] } } as const;
+    const ui = new AffordRemote({
+      send: async () => ({
+        context: JSON.parse(JSON.stringify(tree)),
+        userActions: [
+          { at: 1, op: 'press', node: { id: 'w9', key: 'mail.list[42]', role: 'listitem', name: 'Lunch?' }, route: '/message/42' },
+          { at: 2, op: 'write', node: { id: 'w31', key: 'compose.subject', role: 'textbox', name: 'Subject' }, value: 'Re: lunch' },
+          { at: 3, op: 'navigate', route: '/settings/ai' },
+        ],
+      }),
+    });
+    const look = await ui.handle('ui_look');
+    expect(look.text.indexOf('Meanwhile the user did this themselves:')).toBe(0);
+    expect(look.text).toContain('- pressed [mail.list[42]] listitem "Lunch?"');
+    expect(look.text).toContain('- typed "Re: lunch" into [compose.subject] textbox "Subject"');
+    expect(look.text).toContain('- went to /settings/ai');
+    expect(look.text).toContain("don't undo what they did");
+    // Nothing done meanwhile: nothing said
+    const quiet = new AffordRemote({ send: async () => ({ context: JSON.parse(JSON.stringify(tree)), userActions: [] }) });
+    expect((await quiet.handle('ui_look')).text).not.toContain('Meanwhile');
+  });
+});

@@ -26,6 +26,27 @@ myChannel.onRequest((String id, Map<String, Object?> request) async {
 - `onAct` lets you show the user each step: a ring where the agent is about to tap, a line saying what it is doing. Hide your own
   chat sheet while the agent works, so the user sees the screen it works on, and bring it back when the agent's turn ends.
 
+### What the user does meanwhile
+
+The user's hands stay on the screen while the agent works it. Turn on `kit.watchUser(true)` when the agent starts working the
+screen (its first request with calls) and off when its turn ends: the kit notes what the user does themselves on afforded widgets,
+and the next `answer` carries it as `userActions`, oldest first, with the screen as it is after them:
+
+```dart
+final answer = await AffordKit.instance.answer(request);
+// {"context": ..., "results": [...], "userActions": [{"at": 1792711772948, "op": "press", "node": {"id": "w9", "key": "mail.list[42]",
+//   "role": "listitem", "name": "Lunch on Tuesday?"}, "route": "/message/42"}]}
+```
+
+- Taps are `press`, `toggle` (value `on` / `off`) or `select` (value: what was picked) on the nearest afforded widget under the
+  finger; typing is one `write` per field per burst (value: its text after, cut short; never a password field's); a page changed
+  is `navigate` or `back` (with `route`). A tap that opens a page carries that page's `route`. Scrolling isn't noted.
+- Never the kit's own calls: nothing is noted while it runs them (or a handoff), nor for a moment after.
+- At most the latest 30 are kept; off forgets what wasn't taken. `takeUserActions()` takes them yourself, when the app answers
+  its own way (take them before reading the screen); `onUserAction` is told each one as it is noted.
+- On the agent's side, `AffordAgent` (and `AffordRemote` in TypeScript) puts them at the top of the tool's answer
+  (`describeUserActions`), so the model sees the screen moved under it, and why.
+
 ## The agent's side, in Dart
 
 When the model is called from Dart (in the app itself, or a Dart server), `AffordAgent` is the agent's side:

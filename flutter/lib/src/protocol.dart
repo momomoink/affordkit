@@ -117,6 +117,9 @@ class OpSpec {
   };
 }
 
+/// The AffordTree: the screen's controls as a tree (a context's root).
+typedef AffordTree = AffordNode;
+
 /// A control (or a group of them) in the tree the agent reads.
 class AffordNode {
   /// A node; the kit builds these from afforded widgets.
@@ -758,6 +761,110 @@ class ExecuteResult {
     'results': results.map((r) => r.toJson()).toList(),
     'context': context.toJson(),
   };
+}
+
+/// Something the user did themselves while the agent was working their screen (the kit's own calls are never these), noted while
+/// the app has the kit watching (AffordKit.watchUser). An answer carries them as `userActions`, oldest first, with the AffordTree (the
+/// context's root) as it is after them. Named the way the agent would have called it, so it reads the same: press, write, toggle,
+/// select on a node; navigate (to [route]) or back.
+class UserAction {
+  /// The user did [op] (on [node]) at [at].
+  const UserAction({
+    required this.at,
+    required this.op,
+    this.node,
+    this.value,
+    this.route,
+  });
+
+  /// When, in ms since the epoch.
+  final int at;
+
+  /// What, named as the agent's op would be.
+  final String op;
+
+  /// The node, as the tree had it then (its key when it has one: ids may have gone since). None for navigate and back.
+  final UserActionNode? node;
+
+  /// What they typed or picked, cut short (never what goes into a password field).
+  final String? value;
+
+  /// The route after it.
+  final String? route;
+
+  /// The same, with another [at], [value] or [route].
+  UserAction copyWith({int? at, String? value, String? route}) => UserAction(
+    at: at ?? this.at,
+    op: op,
+    node: node,
+    value: value ?? this.value,
+    route: route ?? this.route,
+  );
+
+  /// The action as JSON.
+  Map<String, Object?> toJson() => {
+    'at': at,
+    'op': op,
+    'node': ?node?.toJson(),
+    'value': ?value,
+    'route': ?route,
+  };
+
+  /// An action from its JSON.
+  factory UserAction.fromJson(Map<String, Object?> j) {
+    final node = j['node'];
+    return UserAction(
+      at: (j['at'] as num?)?.toInt() ?? 0,
+      op: '${j['op'] ?? ''}',
+      node: node is Map
+          ? UserActionNode.fromJson(node.cast<String, Object?>())
+          : null,
+      value: j['value'] as String?,
+      route: j['route'] as String?,
+    );
+  }
+}
+
+/// The node a [UserAction] was on: its id, key, role and name as the tree had them.
+class UserActionNode {
+  /// The node [id] (and [key]): a [role] called [name].
+  const UserActionNode({
+    required this.id,
+    this.key,
+    required this.role,
+    required this.name,
+  });
+
+  /// Its id in the tree then.
+  final String id;
+
+  /// Its key, when it has one.
+  final String? key;
+
+  /// What it is.
+  final Role role;
+
+  /// What the user sees it called.
+  final String name;
+
+  /// The node as JSON.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'key': ?key,
+    'role': role.wire,
+    'name': name,
+  };
+
+  /// A node from its JSON.
+  factory UserActionNode.fromJson(Map<String, Object?> j) => UserActionNode(
+    id: '${j['id']}',
+    key: j['key'] as String?,
+    role: Role.values.firstWhere(
+      (r) => r.wire == j['role'],
+      orElse: () => Role.other,
+    ),
+    name: '${j['name'] ?? ''}',
+  );
 }
 
 /// One step of a handoff: an op on a control by its key (a handoff runs later, when ids from a look have long gone).

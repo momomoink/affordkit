@@ -108,6 +108,18 @@ Tell the kit your app's **routes** (`/mail/:box`, `/settings/:section`) and the 
 
 Keep the trees of pages already seen across reloads with `kit.snapshots()` and `kit.loadSnapshots()`.
 
+## The user's own hands
+
+The user can still use the page while the agent works it. Turn on `kit.watchUser(true)` while your agent is working (off when it is
+done: that also forgets what was noted) and the kit notes what the user does themselves on the tree's nodes — `press`, `write` (one
+entry per field per burst of typing, the text cut to 80 characters, never a password's), `toggle` (`on`/`off`), `select` (what they
+picked) — and `navigate` / `back` when the route changes without the kit doing it. Never the kit's own calls: while it runs them,
+and for 300 ms after, only events the browser marks as a person's (`isTrusted`) count. Nothing in what the tree leaves out (`skip`:
+your agent's chat) is noted.
+
+`kit.answer()` hands what was noted to the agent (`userActions`, oldest first, at most the latest 30) with the tree as it is after
+it, and starts afresh. `onUserAction` (an option) is called as each is noted, if your app wants to react itself.
+
 ## App tools
 
 Some things need no screen: changing a setting, refreshing data, starting an export. Register them as **tools**: a name, a

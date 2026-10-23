@@ -81,6 +81,27 @@ a picture (`{ "type": "image", "mime": "image/png", "data": "<base64>", "width":
 { "error": "…", "code": "failed" }
 ```
 
+### What the user did meanwhile
+
+While the agent works the screen the user can still use it. With `kit.watchUser(true)` (an app turns it on while its agent is
+working, off when it is done) the kit notes what they do themselves — never its own calls — and the next answer carries it, oldest
+first, with the AffordTree (the context's root) as it is after it:
+
+```json
+{
+  "context": { "…": "…" },
+  "results": [{ "…": "…" }],
+  "userActions": [
+    { "at": 1792711772948, "op": "press", "node": { "id": "w9", "key": "mail.list[42]", "role": "listitem", "name": "Lunch on Tuesday?" }, "route": "/message/42" },
+    { "at": 1792711775001, "op": "write", "node": { "id": "w31", "key": "compose.subject", "role": "textbox", "name": "Subject" }, "value": "Re: lunch" }
+  ]
+}
+```
+
+`op` is named as the agent would call it: `press`, `write`, `toggle`, `select`, `scroll` on a node; `navigate` (with `route`) or
+`back`. `value` is cut short and never a password field's. `AffordRemote` puts it at the top of the tool's answer, so the agent
+sees the screen moved and why.
+
 ## Error codes
 
 `not_found`, `no_op`, `bad_args`, `denied`, `needs_confirm`, `declined`, `disabled`, `unreachable`, `timeout`, `unavailable`,

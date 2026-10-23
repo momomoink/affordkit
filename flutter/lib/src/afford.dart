@@ -23,6 +23,9 @@
 //
 // Handoffs: what an agent left for a user who was away (see Handoff), run when they come back — they tapped its notification and
 // the app fetched it by id from its own server: `await AffordKit.instance.runHandoff(handoff)` goes to its route and runs its calls.
+//
+// The user meanwhile: while the agent works the screen the app has the kit watch the user (watchUser), and what they do themselves —
+// a tap, typing, another page; never the kit's own calls — goes with the next answer (userActions), so the agent sees why it moved.
 
 import 'dart:async';
 import 'dart:convert';
@@ -761,7 +764,7 @@ class HandoffResult {
 /// The tree of afforded widgets on screen, and the agent's calls run on them.
 class AffordKit {
   /// A kit of its own; most apps use [instance].
-  AffordKit({this.confirm, this.onAct, this.typeDelay});
+  AffordKit({this.confirm, this.onAct, this.typeDelay, this.onUserAction});
 
   /// Called before an op runs on a widget (allowed by its policy): e.g. to show the user where the agent is about to tap, and wait a
   /// moment so they see it happen. The op runs when it completes.
@@ -770,6 +773,11 @@ class AffordKit {
   /// write / append type the text in, a few characters every [typeDelay] (the whole text in at most about a second and a half), as
   /// if someone were typing; null puts it in at once.
   Duration? typeDelay;
+
+  /// After the agent's calls, once their frame has built: resolves when what they set off has settled — a list or page loading its data
+  /// (a search, a mailbox, a message fetched) — so the screen the agent gets back shows the result, not a spinner. Null: the frame only.
+  /// The app bounds its own wait (no frames come while it is in the background).
+  Future<void> Function()? settle;
 
   /// The one most apps use (.afford() puts widgets here unless given another, or under another [AffordScope]).
   static final AffordKit instance = AffordKit();
@@ -1401,19 +1409,262 @@ class AffordKit {
     throw AffordError(ErrorCode.noOp, 'No way to $op a container');
   }
 
+  // ---------------- what the user does themselves meanwhile (watchUser) ----------------
+
+  /// Told each thing the user does themselves while watched ([watchUser]), as it is noted (typing: each time the burst grows).
+  void Function(UserAction action)? onUserAction;
+
+  bool _watching = false;
+  final _userActions = <UserAction>[];
+
+  /// Most kept (the latest).
+  static const _maxUserActions = 30;
+
+  /// What the last one noted came from: a field (the next edit of it goes into the same entry), or a tap (a page it opens goes with it).
+  Object? _lastFrom;
+  static final _aTap = Object();
+
+  /// Running the agent's calls (or a handoff), and a moment after: what an op sets off — a tap's events, a page opening, a field's
+  /// listeners — can land after it returns. Nothing is noted then.
+  int _busy = 0;
+  int _quietUntil = 0;
+  bool get _own => _busy > 0 || _now() < _quietUntil;
+
+  void _calmDown() {
+    _busy--;
+    _quietUntil = _now() + 300;
+  }
+
+  /// Whether the kit notes what the user does themselves on afforded widgets: an app turns it on while its agent works the screen, and
+  /// off when it is done (off forgets what wasn't taken). The next [answer] carries what it noted as userActions ([takeUserActions]):
+  /// taps (press, toggle, select), typing (write: one per field per burst, never a password's text), going to another page (navigate,
+  /// back). Never the kit's own calls; scrolling isn't noted.
+  void watchUser(bool on) {
+    if (on == _watching) return;
+    _watching = on;
+    final pointers = GestureBinding.instance.pointerRouter;
+    if (on) {
+      pointers.addGlobalRoute(_onPointer);
+      FocusManager.instance.addListener(_onFocus);
+      if (!_framesHooked) {
+        _framesHooked = true;
+        WidgetsBinding.instance.addPersistentFrameCallback(_onFrame);
+      }
+      _trail = [?routes?.current()];
+      _onFocus();
+    } else {
+      pointers.removeGlobalRoute(_onPointer);
+      FocusManager.instance.removeListener(_onFocus);
+      _follow(null);
+      _downs.clear();
+      _userActions.clear();
+      _lastFrom = null;
+    }
+  }
+
+  /// Whether [watchUser] is on.
+  bool get watchingUser => _watching;
+
+  /// What the user did since it was last taken (oldest first), taken: [answer] puts it in its answer — an app that answers its own
+  /// way does the same, before it reads the screen (the screen it sends is then the one after it all).
+  List<UserAction> takeUserActions() {
+    final out = List.of(_userActions);
+    _userActions.clear();
+    _lastFrom = null;
+    return out;
+  }
+
+  void _note(UserAction action, {Object? from, bool merge = false}) {
+    if (merge && from != null && identical(from, _lastFrom)) {
+      _userActions.last = action;
+    } else {
+      _userActions.add(action);
+      if (_userActions.length > _maxUserActions) _userActions.removeAt(0);
+    }
+    _lastFrom = from;
+    onUserAction?.call(action);
+  }
+
+  static int _now() => DateTime.now().millisecondsSinceEpoch;
+
+  UserActionNode _nodeOf(_AffordState e) =>
+      UserActionNode(id: e.id, key: e.fullKey, role: e.role, name: e.label);
+
+  /// Where each finger went down (a tap is one that comes up about there).
+  final _downs = <int, Offset>{};
+
+  void _onPointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      if (!_own) _downs[event.pointer] = event.position;
+    } else if (event is PointerUpEvent) {
+      final from = _downs.remove(event.pointer);
+      // (a tap: not a drag, a scroll, nor one of the kit's own)
+      if (from == null ||
+          _own ||
+          (event.position - from).distance > kTouchSlop) {
+        return;
+      }
+      _tapped(event.position, event.viewId);
+    } else if (event is PointerCancelEvent) {
+      _downs.remove(event.pointer);
+    }
+  }
+
+  /// A tap of the user's (it hasn't done anything yet: the gesture is won after this): on the nearest afforded widget under the finger
+  /// that a tap does something to.
+  void _tapped(Offset at, int viewId) {
+    final hit = HitTestResult();
+    GestureBinding.instance.hitTestInView(hit, at, viewId);
+    final byBox = <RenderObject, _AffordState>{};
+    for (final e in _entries) {
+      final b = e.mounted ? e.box : null;
+      if (b == null) continue;
+      // (two afforded around the same widget: the inner one)
+      final had = byBox[b];
+      if (had == null || e.parent == had) byBox[b] = e;
+    }
+    for (final h in hit.path) {
+      final e = byBox[h.target];
+      if (e == null) continue;
+      // (into a field: what they type there is what counts)
+      if (e.role == Role.textbox) return;
+      final ops = {
+        for (final o in standardOps[e.role] ?? const <OpSpec>[]) o.name,
+        for (final o in e.widget.ops) o.name,
+      };
+      final op = ops.contains('toggle')
+          ? 'toggle'
+          : ops.contains('select')
+          ? 'select'
+          : ops.contains('press')
+          ? 'press'
+          : null;
+      if (op == null) continue;
+      final state = e.state;
+      if (state['disabled'] == true) return;
+      _note(
+        UserAction(
+          at: _now(),
+          op: op,
+          node: _nodeOf(e),
+          value: switch (op) {
+            // (what it is about to be)
+            'toggle' => state['checked'] == true ? 'off' : 'on',
+            'select' => _clip(e.label, 80),
+            _ => null,
+          },
+          route: routes?.current(),
+        ),
+        from: _aTap,
+      );
+      return;
+    }
+  }
+
+  /// The field the user is in, its controller (listened to), and its text as last seen (an edit is when it changes: not the caret).
+  EditableTextState? _field;
+  TextEditingController? _fieldController;
+  String _fieldText = '';
+
+  void _onFocus() {
+    final focus = FocusManager.instance.primaryFocus?.context;
+    final field = focus?.findAncestorStateOfType<EditableTextState>();
+    _follow(field != null && field.mounted ? field : null);
+  }
+
+  void _follow(EditableTextState? field) {
+    final c = field?.widget.controller;
+    _field = field;
+    if (identical(c, _fieldController)) return;
+    try {
+      _fieldController?.removeListener(_onTyped);
+    } catch (_) {
+      // (the field has gone, and its controller with it)
+    }
+    _fieldController = c;
+    _fieldText = c?.text ?? '';
+    c?.addListener(_onTyped);
+  }
+
+  void _onTyped() {
+    final field = _field, c = _fieldController;
+    if (field == null || c == null) return;
+    final text = c.text;
+    if (text == _fieldText) return;
+    _fieldText = text;
+    if (!_watching || _own || !field.mounted) return;
+    final owner = field.context.findAncestorStateOfType<_AffordState>();
+    if (owner == null || owner.kit != this) return;
+    _note(
+      UserAction(
+        at: _now(),
+        op: 'write',
+        node: _nodeOf(owner),
+        // (a password's text never leaves the field)
+        value: field.widget.obscureText ? null : _clip(text, 80),
+        route: routes?.current(),
+      ),
+      from: owner,
+      merge: true,
+    );
+  }
+
+  bool _framesHooked = false;
+
+  /// The routes the user has been through while watched (going to the one before is back).
+  List<String> _trail = [];
+
+  /// After each frame: whether the page changed (the kit's own going there is followed, not noted).
+  void _onFrame(Duration _) {
+    if (!_watching) return;
+    final now = routes?.current();
+    if (now == null || _trail.lastOrNull == now) return;
+    final back = _trail.length > 1 && _trail[_trail.length - 2] == now;
+    if (back) {
+      _trail.removeLast();
+    } else {
+      _trail.add(now);
+      if (_trail.length > 20) _trail.removeAt(0);
+    }
+    if (_own) return;
+    // A tap that opened it (a mail in the list, a page's button): the tap says where it led, rather than another of its own
+    final last = _userActions.lastOrNull;
+    if (last != null &&
+        identical(_lastFrom, _aTap) &&
+        _now() - last.at < 1500) {
+      _note(last.copyWith(route: now), from: _aTap, merge: true);
+      _lastFrom = null;
+      return;
+    }
+    _note(UserAction(at: _now(), op: back ? 'back' : 'navigate', route: now));
+  }
+
   /// An agent's request (from its side — AffordAgent — over the app's own transport, JSON both ways) answered: {look: true} → the
   /// screen (with picture: true, a picture of it too); {calls: [...]} → the calls run, and the screen after.
   Future<Map<String, Object?>> answer(Map<String, Object?> request) async {
     try {
       final calls = request['calls'];
       if (calls is List) {
-        return (await execute([
+        final done = await execute([
           for (final c in calls)
             Call.fromJson((c as Map).cast<String, Object?>()),
-        ])).toJson();
+        ]);
+        // (what the user did before the calls: nothing is noted while they run, so the screen after them is after it all)
+        final meanwhile = takeUserActions();
+        return {
+          ...done.toJson(),
+          if (meanwhile.isNotEmpty)
+            'userActions': [for (final a in meanwhile) a.toJson()],
+        };
       }
       final shot = request['picture'] == true ? await picture() : null;
-      return {'context': context().toJson(), 'picture': ?shot};
+      final meanwhile = takeUserActions();
+      return {
+        'context': context().toJson(),
+        'picture': ?shot,
+        if (meanwhile.isNotEmpty)
+          'userActions': [for (final a in meanwhile) a.toJson()],
+      };
     } catch (error) {
       return {
         'error': '$error',
@@ -1509,6 +1760,20 @@ class AffordKit {
     confirm,
     DateTime? now,
   }) async {
+    _busy++;
+    try {
+      return await _runHandoff(handoff, confirm: confirm, now: now);
+    } finally {
+      _calmDown();
+    }
+  }
+
+  Future<HandoffResult> _runHandoff(
+    Handoff handoff, {
+    Future<bool> Function(Call call, {AffordNode? node, ToolSpec? tool})?
+    confirm,
+    DateTime? now,
+  }) async {
     final results = <CallResult>[];
     HandoffResult stop(int at, ErrorCode code, String error) => HandoffResult(
       ok: false,
@@ -1555,6 +1820,15 @@ class AffordKit {
 
   /// Run the agent's calls in order; the results, and the context afterwards (its next round).
   Future<ExecuteResult> execute(List<Call> calls) async {
+    _busy++;
+    try {
+      return await _execute(calls);
+    } finally {
+      _calmDown();
+    }
+  }
+
+  Future<ExecuteResult> _execute(List<Call> calls) async {
     if (_last.isEmpty) context();
     // Entries fetched before that are gone since: their nodes go
     _fetched.removeWhere((_, v) => !v.$1.mounted);
@@ -1567,6 +1841,7 @@ class AffordKit {
       const Duration(milliseconds: 500),
       onTimeout: () {},
     );
+    if (settle case final s?) await s();
     return ExecuteResult(results, context());
   }
 

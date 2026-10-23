@@ -442,6 +442,39 @@ String describeResult(Json r) {
       : (value is String ? value : jsonEncode(value));
 }
 
+/// What the user did themselves while the agent worked (an answer's userActions, their JSON) as text, to go at the top of the tool's
+/// answer: the screen moved under it, and why. Empty when they did nothing.
+String describeUserActions(List<Object?>? actions) {
+  final list = [
+    for (final a in actions ?? const <Object?>[])
+      if (a is Map) a.cast<String, Object?>(),
+  ];
+  if (list.isEmpty) return '';
+  String what(Json a) {
+    final n = _map(a['node']);
+    final node = n == null
+        ? ''
+        : '[${n['key'] ?? n['id']}] ${n['role']}${'${n['name'] ?? ''}'.isNotEmpty ? ' ${_q(n['name'])}' : ''}';
+    final value = a['value'] != null ? ' ${_q(a['value'])}' : '';
+    final route = a['route'];
+    return switch (a['op']) {
+      'navigate' => 'went to ${route ?? 'another page'}',
+      'back' => 'went back${route != null ? ' (to $route)' : ''}',
+      'press' => 'pressed $node',
+      'write' || 'append' => 'typed$value into $node',
+      'toggle' => 'switched $node$value',
+      'select' => 'picked$value in $node',
+      _ => '${a['op']} $node$value'.trim(),
+    };
+  }
+
+  return [
+    'Meanwhile the user did this themselves:',
+    for (final a in list) '- ${what(a)}',
+    "The screen below is as it is after that. Work with it: don't undo what they did; if it changes what they want, or gets in the way of the goal, stop and ask them.",
+  ].join('\n');
+}
+
 // ---------------- the agent's side ----------------
 
 /// A tool's answer: the text for the agent (its tool result), whether it failed and why, and the screen it left (JSON).
@@ -565,6 +598,8 @@ class AffordAgent {
       );
     }
     final context = _map(answer['context']) ?? const {};
+    // (what the user did themselves meanwhile: first, so the agent reads the screen knowing it moved)
+    final meanwhile = describeUserActions(_list(answer['userActions']));
     final before = _last;
     _last = context;
     if (call == null) {
@@ -579,7 +614,10 @@ class AffordAgent {
                 : "\n\n(No picture: this app can't take one.)")
           : '';
       return ToolAnswer(
-        describe(context, maxNodes: maxNodes) + note,
+        [
+          meanwhile,
+          describe(context, maxNodes: maxNodes) + note,
+        ].where((s) => s.isNotEmpty).join('\n\n'),
         context: context,
         images: images,
       );
@@ -605,7 +643,7 @@ class AffordAgent {
         (mime: '${value!['mime']}', data: value['data'] as String),
     ];
     return ToolAnswer(
-      [said, screen].where((s) => s.isNotEmpty).join('\n\n'),
+      [meanwhile, said, screen].where((s) => s.isNotEmpty).join('\n\n'),
       isError: !ok,
       code: ErrorCode.fromWire(r['code']),
       context: context,

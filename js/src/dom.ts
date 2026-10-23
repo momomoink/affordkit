@@ -32,9 +32,13 @@
  *
  * Handoffs: what an agent left for a user who was away (see Handoff), run when they come back — they tapped its notification and
  * the app fetched it by id from its own server: `await kit.runHandoff(handoff)` goes to its route and runs its calls there.
+ *
+ * The user's own hands: while the agent works the screen, `kit.watchUser(true)` notes what the user does themselves (press, type,
+ * toggle, pick, go to a page) — never the kit's own calls — and the next answer carries it (userActions), so the agent sees why the
+ * screen moved under it. `kit.watchUser(false)` when the agent is done.
  */
 
-import { AffordError, PROTOCOL_VERSION, findRoute, handoffProblem, itemKey, opsFor, parseHandoff, parseItemKey, type ErrorCode, type Handoff, type ItemSummary, type ItemsPage, type ItemTree, type PagePeek, type RouteState, type AffordContext, type AffordNode, type Call, type CallResult, type ExecuteResult, type OpSpec, type ParamsSchema, type Policy, type Role, type RouteSpec, type StateValue, type ToolSpec, type UiAnswer, type UiRequest, type ImageValue } from './protocol.js';
+import { AffordError, PROTOCOL_VERSION, findRoute, handoffProblem, itemKey, opsFor, parseHandoff, parseItemKey, type ErrorCode, type Handoff, type ItemSummary, type ItemsPage, type ItemTree, type PagePeek, type RouteState, type AffordContext, type AffordNode, type Call, type CallResult, type ExecuteResult, type OpSpec, type ParamsSchema, type Policy, type Role, type RouteSpec, type StateValue, type ToolSpec, type UiAnswer, type UiRequest, type ImageValue, type UserAction } from './protocol.js';
 import { AffordRemote, type RemoteOptions } from './remote.js';
 
 /** An operation the app adds to a control. */
@@ -132,6 +136,21 @@ export interface AffordKitOptions {
   maxRead?: number;
   /** Resolves once what the agent's calls changed has shown (default: a frame or two) — before it is given the screen after them. */
   settle?: () => Promise<void>;
+  /**
+   * Called before an op runs on an element (allowed by its policy): e.g. to show the user where the agent is about to act, and wait a
+   * moment so they see it happen. The op runs when it resolves. Not for reads, nor a container fetching or scrolling its entries.
+   */
+  onAct?: (event: ActEvent) => Promise<void> | void;
+  /** Called with each thing the user does themselves while watched (watchUser), as it is noted (a write again as their typing goes on). */
+  onUserAction?: (action: UserAction) => void;
+}
+
+/** An op about to run on an element (for onAct): what, on which node, and the element. */
+export interface ActEvent {
+  node: AffordNode;
+  op: string;
+  args: Record<string, unknown>;
+  el: Element;
 }
 
 /** How a handoff is run (kit.runHandoff). */
@@ -293,6 +312,9 @@ const strip = (n: AffordNode, prefix: string): AffordNode => ({ ...n, id: prefix
 function defaultVisible(el: Element): boolean {
   const h = el as HTMLElement;
   if (h.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+  // display: contents has no box of its own (checkVisibility says no) but its children show: a wrapper a framework puts around a
+  // dialog or a transition, which left whatever is in it out of the tree
+  if (getComputedStyle(el).display === 'contents') return true;
   if (typeof h.checkVisibility === 'function') return h.checkVisibility({ checkOpacity: false, checkVisibilityCSS: true });
   const r = h.getBoundingClientRect();
   return r.width > 0 || r.height > 0;
@@ -321,6 +343,17 @@ export class AffordKit {
   private lastTree: Map<string, AffordNode> = new Map();
   /** Each page's tree the last time it showed (by route), for peeks. */
   private seen = new Map<string, { root: AffordNode; at: number }>();
+  /** What the user did themselves since the last answer (watchUser), oldest first. */
+  private userActions: UserAction[] = [];
+  /** Stops watching the user; set while watching. */
+  private unwatch: (() => void) | null = null;
+  /** The kit's own calls running (execute, a handoff), and until when what they set off may still fire events on the page. */
+  private acting = 0;
+  private quietUntil = 0;
+  /** The route as last seen while watching: a change the kit didn't make is the user's. */
+  private userRoute: string | undefined;
+  /** When the user last went back (popstate): the route change that follows is a back. */
+  private wentBackAt = 0;
 
   constructor(private readonly options: AffordKitOptions = {}) {}
 
@@ -649,11 +682,206 @@ export class AffordKit {
    */
   async answer(request: UiRequest): Promise<UiAnswer> {
     try {
-      if ('calls' in request) return await this.execute(request.calls);
-      return { context: this.context() };
+      // (a page the user went to themselves: noted before the calls go anywhere)
+      this.noteRoute();
+      if ('calls' in request) {
+        const done = await this.execute(request.calls);
+        // What the user did meanwhile, up to now (nothing runs between the context taken and this: it is the tree after it all)
+        const userActions = this.drainUser();
+        return { ...done, ...(userActions.length ? { userActions } : {}) };
+      }
+      const userActions = this.drainUser();
+      return { context: this.context(), ...(userActions.length ? { userActions } : {}) };
     } catch (error) {
       return { error: (error as Error).message, code: error instanceof AffordError ? error.code : 'failed' };
     }
+  }
+
+  /**
+   * Note what the user does themselves (on: while the agent works their screen): press, write, toggle and select on the tree's
+   * nodes, and navigate / back — for the next answer (userActions). Never the kit's own calls: while it runs them, and for a moment
+   * after (an op can set off events once it has returned), only events the browser says a person made count (isTrusted). Not in
+   * what the tree leaves out (skip: e.g. the agent's own chat). Off forgets what was noted.
+   */
+  watchUser(on: boolean): void {
+    if (!on) {
+      this.unwatch?.();
+      this.unwatch = null;
+      this.userActions = [];
+      return;
+    }
+    if (this.unwatch) return;
+    const root = this.options.root ?? document.documentElement;
+    const win = root.ownerDocument.defaultView;
+    this.userRoute = this.routes?.current();
+    this.wentBackAt = 0;
+    const click = (e: Event) => this.onUserClick(e);
+    const input = (e: Event) => this.onUserInput(e);
+    const change = (e: Event) => this.onUserChange(e);
+    // (the kit's own back fires it too, and the browser may call that one trusted)
+    const popstate = () => {
+      if (!this.acting && Date.now() >= this.quietUntil) this.wentBackAt = Date.now();
+    };
+    // (captured: what was pressed is named as it was before the app's own handlers change it)
+    root.addEventListener('click', click, true);
+    root.addEventListener('input', input, true);
+    root.addEventListener('change', change, true);
+    win?.addEventListener('popstate', popstate);
+    // A page the user goes to: however the app routes, its current route changes
+    const timer = setInterval(() => this.noteRoute(), 400);
+    this.unwatch = () => {
+      root.removeEventListener('click', click, true);
+      root.removeEventListener('input', input, true);
+      root.removeEventListener('change', change, true);
+      win?.removeEventListener('popstate', popstate);
+      clearInterval(timer);
+    };
+  }
+
+  /** The kit's own calls are running, or have just: an event now is theirs unless a person made it. */
+  private ownEvent(e: Event): boolean {
+    return (this.acting > 0 || Date.now() < this.quietUntil) && !e.isTrusted;
+  }
+
+  private doneActing(): void {
+    this.acting--;
+    this.quietUntil = Date.now() + 300;
+    if (this.routes) this.userRoute = this.routes.current();
+  }
+
+  private drainUser(): UserAction[] {
+    const out = this.userActions;
+    this.userActions = [];
+    return out;
+  }
+
+  private noteUser(action: UserAction): void {
+    const last = this.userActions.at(-1);
+    // Typing into the same field on and on: one entry, with what it says now
+    if (action.op === 'write' && last?.op === 'write' && last.node?.id === action.node?.id) this.userActions[this.userActions.length - 1] = action;
+    else {
+      this.userActions.push(action);
+      if (this.userActions.length > 30) this.userActions.shift();
+    }
+    this.options.onUserAction?.(action);
+  }
+
+  /** The route changed and the kit didn't change it: the user went there (or back). */
+  private noteRoute(): void {
+    if (!this.unwatch || !this.routes) return;
+    const now = this.routes.current();
+    if (now === this.userRoute) return;
+    this.userRoute = now;
+    // (the kit's own navigate, still settling)
+    if (this.acting > 0 || Date.now() < this.quietUntil) {
+      this.wentBackAt = 0;
+      return;
+    }
+    const back = Date.now() - this.wentBackAt < 1500;
+    this.wentBackAt = 0;
+    // A press that took them there: it says where it led too
+    const last = this.userActions.at(-1);
+    if (last?.op === 'press' && Date.now() - last.at < 1500) last.route = now;
+    this.noteUser({ at: Date.now(), op: back ? 'back' : 'navigate', route: now });
+  }
+
+  /** An action on a node, as it is now (with the route it was on). */
+  private user(op: string, node: NonNullable<UserAction['node']>, value?: string): void {
+    this.noteRoute();
+    const route = this.routes?.current();
+    this.noteUser({ at: Date.now(), op, node, ...(value !== undefined ? { value } : {}), ...(route !== undefined ? { route } : {}) });
+  }
+
+  private onUserClick(e: Event): void {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target || this.ownEvent(e)) return;
+    // A label's click is passed on to its field, which is noted itself
+    const label = target.closest('label');
+    if (label?.control && !label.control.contains(target)) return;
+    const hit = this.userNode(target);
+    if (!hit) return;
+    const { el, node, ops } = hit;
+    switch (node.role) {
+      case 'checkbox':
+      case 'switch': {
+        // (a native box has changed by the time its click is dispatched; another one says so once the app has rendered: it will be the other)
+        const on = el instanceof HTMLInputElement ? el.checked : el.getAttribute('aria-checked') !== 'true';
+        return this.user('toggle', node, on ? 'on' : 'off');
+      }
+      case 'radio':
+      case 'tab':
+        return this.user('select', node, node.name);
+      case 'textbox':
+      case 'select':
+        // (noted as what is in them changes)
+        return;
+    }
+    if (ops.includes('press')) this.user('press', node);
+  }
+
+  private onUserInput(e: Event): void {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target || this.ownEvent(e)) return;
+    const hit = this.userNode(target);
+    if (!hit || hit.node.role !== 'textbox') return;
+    const { el, node } = hit;
+    // Never what goes into a password field: only that they typed in it
+    const text = isSecret(el) ? undefined : ((el as HTMLInputElement).value ?? (el as HTMLElement).innerText ?? '');
+    this.user('write', node, text === undefined ? undefined : text.length > 80 ? text.slice(0, 79) + '…' : text);
+  }
+
+  private onUserChange(e: Event): void {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!(target instanceof HTMLSelectElement) || this.ownEvent(e)) return;
+    const hit = this.userNode(target);
+    if (hit?.node.role === 'select') this.user('select', hit.node, target.options[target.selectedIndex]?.textContent?.trim() ?? target.value);
+  }
+
+  /**
+   * The node the user acted on: the nearest element the tree makes one of (a container's entry too), as the tree would have it now —
+   * its id, key, role and name, and its ops' names. None in what the tree leaves out.
+   */
+  private userNode(target: Element): { el: Element; node: NonNullable<UserAction['node']>; ops: string[] } | null {
+    const root = this.options.root ?? document.documentElement;
+    if (!root.contains(target)) return null;
+    const path: Element[] = [];
+    for (let e: Element | null = target; e; e = e === root ? null : e.parentElement) {
+      if (e.hasAttribute('data-afford-skip') || this.optionsOf(e)?.skip || (this.options.skip && e.matches(this.options.skip))) return null;
+      path.push(e);
+    }
+    // In a container: its entry (the outermost element under it that is one) is a node, and keys inside it are under the entry's
+    const boxAt = path.findIndex((e, i) => i > 0 && this.containerOf(e));
+    let entry: { at: number; key?: string } | null = null;
+    if (boxAt > 0) {
+      const boxEl = path[boxAt]!;
+      const box = this.containerOf(boxEl)!;
+      const boxKey = this.knownNode(boxEl)?.key ?? this.optionsOf(boxEl)?.key;
+      for (let i = boxAt - 1; i >= 0 && !entry; i--) {
+        let id = this.itemIdOf(path[i]!, box);
+        if (id === null) continue;
+        if (!id) id = this.itemsOf(boxEl, box).find((it) => it.el === path[i])?.id ?? '';
+        entry = { at: i, ...(boxKey !== undefined && id ? { key: itemKey(boxKey, id) } : {}) };
+      }
+    }
+    const end = entry ? entry.at : path.length - 1;
+    for (let i = 0; i <= end; i++) {
+      const el = path[i]!;
+      const opts = this.optionsOf(el);
+      const isEntry = entry?.at === i;
+      const role: Role | null = isEntry ? (opts?.role ?? 'listitem') : this.containerOf(el) ? 'container' : (opts?.role ?? roleOf(el) ?? (opts || el.hasAttribute('data-afford') ? 'region' : null));
+      if (!role) continue;
+      const known = this.knownNode(el);
+      const key = known?.key ?? (isEntry ? entry!.key : opts?.key && entry?.key ? `${entry.key}.${opts.key}` : opts?.key);
+      const ops = opsFor(role, undefined, (opts?.ops ?? []).map(({ name }) => ({ name, policy: 'allow' as Policy }))).map((o) => o.name);
+      return { el, node: { id: this.idOf(el), ...(key ? { key } : {}), role, name: opts?.name ?? (isEntry ? nameOf(el, 'listitem') : nameOf(el, role === 'container' ? 'list' : role)) }, ops };
+    }
+    return null;
+  }
+
+  /** The node an element was in the last tree (or an entry fetched), if it was. */
+  private knownNode(el: Element): AffordNode | undefined {
+    const id = this.ids.get(el);
+    return id ? (this.lastTree.get(id) ?? this.fetched.get(id)) : undefined;
   }
 
   /** An agent in the page itself: its tools on this kit, straight (no transport). */
@@ -663,15 +891,21 @@ export class AffordKit {
 
   /** Run the agent's calls in order; the results, and the context afterwards (its next round). */
   async execute(calls: Call | Call[]): Promise<ExecuteResult> {
-    const results: CallResult[] = [];
-    if (!this.lastTree.size) this.context();
-    // Entries fetched before that have left the page since: their nodes go
-    for (const [id] of this.fetched) if (!this.byId.get(id)?.deref()?.isConnected) this.fetched.delete(id);
-    const list = Array.isArray(calls) ? calls : [calls];
-    for (const call of list) results.push(await this.run(call));
-    // What they changed shows before the screen goes back (a framework renders on the next frame): not after reading only
-    if (list.some((c) => !('peek' in c) && !('op' in c && (c.op === 'read' || c.op === 'items' || c.op === 'view'))) && !list.every((c) => 'navigate' in c)) await (this.options.settle?.() ?? nextFrames());
-    return { results, context: this.context() };
+    // (what the calls set off on the page is not the user's doing: see watchUser)
+    this.acting++;
+    try {
+      const results: CallResult[] = [];
+      if (!this.lastTree.size) this.context();
+      // Entries fetched before that have left the page since: their nodes go
+      for (const [id] of this.fetched) if (!this.byId.get(id)?.deref()?.isConnected) this.fetched.delete(id);
+      const list = Array.isArray(calls) ? calls : [calls];
+      for (const call of list) results.push(await this.run(call));
+      // What they changed shows before the screen goes back (a framework renders on the next frame): not after reading only
+      if (list.some((c) => !('peek' in c) && !('op' in c && (c.op === 'read' || c.op === 'items' || c.op === 'view'))) && !list.every((c) => 'navigate' in c)) await (this.options.settle?.() ?? nextFrames());
+      return { results, context: this.context() };
+    } finally {
+      this.doneActing();
+    }
   }
 
   /**
@@ -683,6 +917,15 @@ export class AffordKit {
    * notification or a link itself), and only once.
    */
   async runHandoff(handoff: Handoff, options: HandoffOptions = {}): Promise<HandoffResult> {
+    this.acting++;
+    try {
+      return await this.handoff(handoff, options);
+    } finally {
+      this.doneActing();
+    }
+  }
+
+  private async handoff(handoff: Handoff, options: HandoffOptions): Promise<HandoffResult> {
     const results: CallResult[] = [];
     const stop = (at: number, code: ErrorCode, error: string): HandoffResult => ({ ok: false, ran: Math.max(0, at), stoppedAt: at, code, error, results });
     const problem = handoffProblem(handoff);
@@ -749,6 +992,9 @@ export class AffordKit {
       const blocked = await this.allowed(op.policy, { call, node }, confirm);
       if (blocked) return blocked;
       const custom = this.optionsOf(el)?.ops?.find((o) => o.name === call.op);
+      // (shown for what changes something on screen: not reads, nor a container fetching its entries)
+      const containerOp = !custom && node.role === 'container' && ['item', 'items', 'scroll_to', 'scroll'].includes(call.op);
+      if (call.op !== 'read' && call.op !== 'view' && !containerOp) await this.options.onAct?.({ node, op: call.op, args: call.args ?? {}, el });
       if (custom) return { call, ok: true, value: await custom.run(call.args ?? {}, el) };
       return { call, ok: true, value: await this.standard(el, node, call.op, call.args ?? {}) };
     } catch (error) {

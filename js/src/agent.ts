@@ -3,7 +3,7 @@
  * an agent uses to act on the app — each turned into a Call for the app's execute.
  */
 
-import { isImage, type AffordContext, type AffordNode, type Call, type CallResult, type ItemsPage, type ItemTree, type PagePeek, type ParamsSchema, type RouteState } from './protocol.js';
+import { isImage, type AffordContext, type AffordNode, type Call, type CallResult, type ItemsPage, type ItemTree, type PagePeek, type ParamsSchema, type RouteState, type UserAction } from './protocol.js';
 
 function routeLines(route: RouteState): string[] {
   const params = route.params && Object.keys(route.params).length ? ` (${Object.entries(route.params).map(([k, v]) => `${k}=${v}`).join(', ')})` : '';
@@ -222,6 +222,40 @@ export function toCall(tool: string, args: Record<string, unknown>): Call | null
       throw new Error('ui_handoff is not a call to the app: it goes to the host (AffordRemote with onHandoff)');
   }
   throw new Error(`Not an AffordKit tool: ${tool}`);
+}
+
+/**
+ * What the user did themselves since the agent last looked, as text for it: one line each, then what that means for its work. Empty
+ * when they did nothing.
+ */
+export function describeUserActions(actions: UserAction[] | undefined): string {
+  if (!actions?.length) return '';
+  const what = (a: UserAction) => {
+    const node = a.node ? `[${a.node.key ?? a.node.id}] ${a.node.role}${a.node.name ? ` "${a.node.name}"` : ''}` : '';
+    const value = a.value !== undefined ? ` "${a.value}"` : '';
+    switch (a.op) {
+      case 'navigate':
+        return `went to ${a.route ?? 'another page'}`;
+      case 'back':
+        return `went back${a.route ? ` (to ${a.route})` : ''}`;
+      case 'press':
+        return `pressed ${node}`;
+      case 'write':
+      case 'append':
+        return `typed${value} into ${node}`;
+      case 'toggle':
+        return `switched ${node}${value}`;
+      case 'select':
+        return `picked${value} in ${node}`;
+      default:
+        return `${a.op} ${node}${value}`.trim();
+    }
+  };
+  return [
+    'Meanwhile the user did this themselves:',
+    ...actions.map((a) => `- ${what(a)}`),
+    "The screen below is as it is after that. Work with it: don't undo what they did; if it changes what they want, or gets in the way of the goal, stop and ask them.",
+  ].join('\n');
 }
 
 /** A result as text for the agent. */

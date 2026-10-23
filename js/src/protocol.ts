@@ -20,6 +20,11 @@
  *   isn't built (virtualized) is scrolled to first. Acting on such a key straight away works too. Containers nest.
  * - When the user has left the app (it is in the background), its screen can't be worked: the agent does what it can another way,
  *   and may leave a handoff — a message, and calls by key that take the user to what it did when they come back.
+ * - The user's hands stay on the screen while the agent works it. What they do themselves meanwhile (press, type, go to a page) the
+ *   kit notes while the app has it watching (watchUser), and the next answer carries it (userActions) with the AffordTree after it:
+ *   the agent sees the screen moved under it, and why, instead of acting on what was there before.
+ *
+ * The AffordTree is the screen as the agent sees it: the root node of a context and everything under it.
  */
 
 export const PROTOCOL_VERSION = 1;
@@ -92,6 +97,25 @@ export interface ItemTree {
   index?: number;
   source: 'live' | 'preview';
   root: AffordNode;
+}
+
+/** The AffordTree: the screen's controls as a tree (a context's root). */
+export type AffordTree = AffordNode;
+
+/**
+ * Something the user did themselves while the agent was working their screen (the kit's own calls are never these). Named the way
+ * the agent would have called it, so it reads the same: press, write, toggle, select, scroll on a node; navigate (to route) or back.
+ */
+export interface UserAction {
+  /** When, in ms since the epoch. */
+  at: number;
+  op: string;
+  /** The node, as the tree had it then (its key when it has one: ids may have gone since). None for navigate and back. */
+  node?: { id: string; key?: string; role: Role; name: string };
+  /** What they typed or picked, cut short (never what goes into a password field). */
+  value?: string;
+  /** The route after it. */
+  route?: string;
 }
 
 export interface AffordNode {
@@ -232,8 +256,11 @@ export interface CallResult {
  */
 export type UiRequest = { look: true; picture?: boolean } | { calls: Call[] };
 
-/** The app's answer: the screen (and the calls' results; a picture of the screen when asked and it can), or why it couldn't. */
-export type UiAnswer = { context: AffordContext; results?: CallResult[]; picture?: ImageValue } | { error: string; code?: ErrorCode };
+/**
+ * The app's answer: the screen (and the calls' results; a picture of the screen when asked and it can), or why it couldn't. With
+ * userActions: what the user did themselves since the last answer (oldest first) — the context is the AffordTree after it all.
+ */
+export type UiAnswer = { context: AffordContext; results?: CallResult[]; picture?: ImageValue; userActions?: UserAction[] } | { error: string; code?: ErrorCode };
 
 /** A picture (what op view answers, and a look with picture): PNG / JPEG as base64, or where it is when it couldn't be read. */
 export interface ImageValue {

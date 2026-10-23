@@ -35,7 +35,9 @@ console.log(kit.context()); // the screen as a tree
 
 Options: `root` (the part of the page the agent sees; default the whole document), `skip` (a selector left out, besides
 `data-afford-skip`), `confirm`, `isVisible` (whether an element is on screen), `maxRead` (longest text a read returns),
-`settle` (resolves once what the agent's calls changed has rendered; default a frame or two).
+`settle` (resolves once what the agent's calls changed has rendered; default a frame or two), `onAct` (before each op runs on an
+element: show the user where), `onUserAction` (each thing the user does themselves while watched: see
+[The user's own hands](concepts.md#the-users-own-hands)).
 
 ## Name things, give them keys and policies
 

@@ -11,7 +11,7 @@
  * ui_handoff, to leave the user a message and the calls that take them to what it did (see Handoff).
  */
 
-import { AGENT_TOOLS, describe, describeChange, describeResult, toCall, type AgentTool } from './agent.js';
+import { AGENT_TOOLS, describe, describeChange, describeResult, describeUserActions, toCall, type AgentTool } from './agent.js';
 import { AffordError, findRoute, handoffProblem, isImage, parseHandoff, type AffordContext, type Call, type ErrorCode, type Handoff, type ImageValue, type UiAnswer, type UiRequest } from './protocol.js';
 
 export interface RemoteOptions {
@@ -100,7 +100,8 @@ export class AffordRemote {
     if (!call) {
       const picture = answer.picture?.data ? [{ mime: answer.picture.mime, data: answer.picture.data }] : [];
       const note = input?.picture === true ? (picture.length ? '\n\n(A picture of the screen is attached.)' : '\n\n(No picture: this app can\'t take one.)') : '';
-      return { text: describe(answer.context, max) + note, isError: false, context: answer.context, ...(picture.length ? { images: picture } : {}) };
+      const meanwhile = describeUserActions(answer.userActions);
+      return { text: (meanwhile ? `${meanwhile}\n\n` : '') + describe(answer.context, max) + note, isError: false, context: answer.context, ...(picture.length ? { images: picture } : {}) };
     }
     const r = answer.results?.[0];
     if (!r) return failed('unavailable', 'The app gave no result');
@@ -108,7 +109,8 @@ export class AffordRemote {
     const said = r.ok && 'navigate' in call && before && this.options.screen !== 'whole' ? '' : describeResult(r);
     const screen = 'peek' in call ? '' : this.options.screen === 'whole' || !before ? `The screen now:\n${describe(answer.context, max)}` : describeChange(before, answer.context, max);
     const image = isImage(r.value) && r.value.data ? [{ mime: r.value.mime, data: r.value.data }] : [];
-    return { text: [said, screen].filter(Boolean).join('\n\n'), isError: !r.ok, ...(r.code ? { code: r.code } : {}), context: answer.context, ...(image.length ? { images: image } : {}) };
+    // (what the user did themselves first: the screen it left is part of what the change below shows)
+    return { text: [describeUserActions(answer.userActions), said, screen].filter(Boolean).join('\n\n'), isError: !r.ok, ...(r.code ? { code: r.code } : {}), context: answer.context, ...(image.length ? { images: image } : {}) };
   }
 
   /** ui_handoff: the agent's handoff checked (its route against the routes seen), with its expiry, and given to the host. */
