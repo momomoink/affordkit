@@ -9,8 +9,8 @@
 
 <p align="center">Your app's UI, for AI agents to see and use.</p>
 
-AffordKit lets an AI agent on your backend use your app's frontend, the way a person would: open that mail, press Reply, type
-the answer. The user watches it happen, on their own screen.
+AffordKit is a frontend library: it lets an AI agent on your backend use your app's UI the way a person would. Open that mail,
+press Reply, type the answer; the user watches it happen, on their own screen.
 
 <p align="center">
   <picture>
