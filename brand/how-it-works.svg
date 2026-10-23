@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" fill="none" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-  <!-- How AffordKit works: the kit in the app builds the AffordTree and answers requests; AffordRemote on the backend turns them
-       into the model's screen tools. Between them, the app's own channel, carrying UiRequest and UiAnswer. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="580" viewBox="0 0 1000 580" fill="none" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <!-- How AffordKit works. What AffordKit gives you is drawn solid, in violet: the kit in the app (it builds the AffordTree and
+       answers requests) and AffordRemote on the server (the screen as tools). What is yours is drawn dashed: your UI, your agent
+       (the model, its loop and prompt, or an agent like Claude Code) and the channel between app and server. -->
   <defs>
     <marker id="v" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M1 1 L8 5 L1 9" stroke="#4B2FD1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -11,168 +12,160 @@
     <marker id="g" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M1 1 L8 5 L1 9" stroke="#B9AFF0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
-    <marker id="w" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M1 1 L8 5 L1 9" stroke="#CFC6FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </marker>
   </defs>
 
-  <rect width="1000" height="560" rx="24" fill="#F7F5FF"/>
+  <rect width="1000" height="580" rx="24" fill="#F7F5FF"/>
 
   <!-- ================= Frontend: in your app ================= -->
   <text x="40" y="46" font-size="12" font-weight="600" letter-spacing="0.8" fill="#8A84B8">FRONTEND · IN YOUR APP</text>
   <rect x="40" y="60" width="380" height="448" rx="22" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
 
-  <!-- your UI -->
-  <text x="64" y="94" font-size="13.5" font-weight="600" fill="#1F1A4E">Your UI</text>
-  <g transform="translate(64 106)">
-    <rect width="332" height="54" rx="14" fill="#F4F2FF"/>
-    <rect x="14" y="14" width="96" height="26" rx="8" fill="#FFFFFF" stroke="#DCD6FA" stroke-width="1.5"/>
-    <rect x="24" y="24" width="52" height="6" rx="3" fill="#C9C1F4"/>
-    <rect x="122" y="14" width="96" height="26" rx="8" fill="#FFFFFF" stroke="#DCD6FA" stroke-width="1.5"/>
-    <rect x="132" y="22" width="60" height="5" rx="2.5" fill="#C9C1F4"/>
-    <rect x="132" y="30" width="40" height="4" rx="2" fill="#DCD6FA"/>
-    <rect x="230" y="14" width="88" height="26" rx="13" fill="#4B2FD1"/>
-    <text x="274" y="31.5" text-anchor="middle" font-size="11.5" font-weight="600" fill="#FFFFFF">Reply</text>
+  <!-- your UI: yours -->
+  <g transform="translate(64 80)">
+    <rect width="332" height="88" rx="16" fill="#FFFFFF" stroke="#B9AFF0" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <text x="16" y="24" font-size="13.5" font-weight="600" fill="#1F1A4E">Your UI</text>
+    <rect x="16" y="40" width="96" height="30" rx="8" fill="#FFFFFF" stroke="#DCD6FA" stroke-width="1.5"/>
+    <rect x="28" y="52" width="52" height="6" rx="3" fill="#C9C1F4"/>
+    <rect x="122" y="40" width="96" height="30" rx="8" fill="#FFFFFF" stroke="#DCD6FA" stroke-width="1.5"/>
+    <rect x="134" y="50" width="60" height="5" rx="2.5" fill="#C9C1F4"/>
+    <rect x="134" y="59" width="40" height="4" rx="2" fill="#DCD6FA"/>
+    <rect x="228" y="40" width="88" height="30" rx="15" fill="#1F1A4E"/>
+    <text x="272" y="59.5" text-anchor="middle" font-size="11.5" font-weight="600" fill="#FFFFFF">Reply</text>
   </g>
 
-  <!-- build -->
-  <path d="M230 166 V188" stroke="#B9AFF0" stroke-width="2" stroke-linecap="round" marker-end="url(#g)"/>
-  <text x="242" y="182" font-size="11.5" fill="#8A84B8">builds</text>
+  <!-- AffordKit in the app: ours -->
+  <g transform="translate(64 186)">
+    <rect width="332" height="234" rx="16" fill="#FFFFFF" stroke="#4B2FD1" stroke-width="2"/>
+    <text x="16" y="26" font-size="13.5" font-weight="700" fill="#4B2FD1">AffordKit</text>
+    <text x="316" y="26" text-anchor="end" font-size="12" fill="#6B6596">builds the tree, runs the calls</text>
 
-  <!-- the AffordTree -->
-  <g transform="translate(64 196)">
-    <rect width="332" height="118" rx="16" fill="#FFFFFF" stroke="#4B2FD1" stroke-width="1.5"/>
-    <text x="16" y="25" font-size="13.5" font-weight="700" fill="#1F1A4E">AffordTree</text>
-    <text x="316" y="25" text-anchor="end" font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#8A84B8">kit.context()</text>
-    <path d="M22 40 V98 M22 54 H32 M22 76 H32 M22 98 H32" stroke="#D5CEF7" stroke-width="1.5" stroke-linecap="round"/>
-    <g font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace">
-      <rect x="36" y="44" width="280" height="20" rx="10" fill="#F4F2FF"/>
-      <text x="46" y="58" fill="#1F1A4E">textbox "Search" · write</text>
-      <rect x="36" y="66" width="280" height="20" rx="10" fill="#F4F2FF"/>
-      <text x="46" y="80" fill="#1F1A4E">list "Inbox" · 312 entries</text>
-      <rect x="36" y="88" width="280" height="20" rx="10" fill="#FFF4D6"/>
-      <text x="46" y="102" fill="#1F1A4E">button "Reply" · press</text>
+    <!-- the AffordTree -->
+    <rect x="16" y="40" width="300" height="104" rx="12" fill="#F4F2FF"/>
+    <text x="30" y="61" font-size="12.5" font-weight="700" fill="#1F1A4E">AffordTree</text>
+    <text x="302" y="61" text-anchor="end" font-size="11" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#8A84B8">kit.context()</text>
+    <path d="M34 72 V128 M34 84 H42 M34 106 H42 M34 128 H42" stroke="#C9C1F4" stroke-width="1.5" stroke-linecap="round"/>
+    <g font-size="11" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace">
+      <rect x="46" y="75" width="256" height="18" rx="9" fill="#FFFFFF"/>
+      <text x="56" y="88" fill="#1F1A4E">textbox "Search" · write</text>
+      <rect x="46" y="97" width="256" height="18" rx="9" fill="#FFFFFF"/>
+      <text x="56" y="110" fill="#1F1A4E">list "Inbox" · 312 entries</text>
+      <rect x="46" y="119" width="256" height="18" rx="9" fill="#FFF4D6"/>
+      <text x="56" y="132" fill="#1F1A4E">button "Reply" · press</text>
     </g>
-  </g>
 
-  <!-- the kit: what it keeps -->
-  <g transform="translate(64 330)">
-    <text x="0" y="14" font-size="13.5" font-weight="600" fill="#1F1A4E">AffordKit</text>
-    <text x="78" y="14" font-size="12" fill="#6B6596">runs each call under your rules</text>
+    <!-- your rules, and what the kit keeps -->
     <g font-size="11.5" font-weight="600">
-      <rect x="0" y="26" width="52" height="24" rx="12" fill="#E9F8F0"/>
-      <text x="26" y="42" text-anchor="middle" fill="#1C8A55">allow</text>
-      <rect x="58" y="26" width="64" height="24" rx="12" fill="#FFF4D6"/>
-      <text x="90" y="42" text-anchor="middle" fill="#A06A00">confirm</text>
-      <rect x="128" y="26" width="48" height="24" rx="12" fill="#FDECEF"/>
-      <text x="152" y="42" text-anchor="middle" fill="#C0344F">deny</text>
+      <rect x="16" y="156" width="52" height="24" rx="12" fill="#E9F8F0"/>
+      <text x="42" y="172" text-anchor="middle" fill="#1C8A55">allow</text>
+      <rect x="74" y="156" width="64" height="24" rx="12" fill="#FFF4D6"/>
+      <text x="106" y="172" text-anchor="middle" fill="#A06A00">confirm</text>
+      <rect x="144" y="156" width="48" height="24" rx="12" fill="#FDECEF"/>
+      <text x="168" y="172" text-anchor="middle" fill="#C0344F">deny</text>
+      <text x="204" y="172" font-weight="400" fill="#6B6596">your rules, kept</text>
     </g>
-    <g font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#3B3570">
-      <rect x="0" y="58" width="76" height="24" rx="12" fill="#F4F2FF"/>
-      <text x="38" y="74" text-anchor="middle">routes</text>
-      <rect x="82" y="58" width="74" height="24" rx="12" fill="#F4F2FF"/>
-      <text x="119" y="74" text-anchor="middle">settle</text>
-      <rect x="162" y="58" width="94" height="24" rx="12" fill="#F4F2FF"/>
-      <text x="209" y="74" text-anchor="middle">watchUser</text>
-      <rect x="262" y="58" width="70" height="24" rx="12" fill="#F4F2FF"/>
-      <text x="297" y="74" text-anchor="middle">onAct</text>
+    <g font-size="11" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#3B3570">
+      <rect x="16" y="190" width="68" height="24" rx="12" fill="#F4F2FF"/>
+      <text x="50" y="206" text-anchor="middle">routes</text>
+      <rect x="90" y="190" width="64" height="24" rx="12" fill="#F4F2FF"/>
+      <text x="122" y="206" text-anchor="middle">settle</text>
+      <rect x="160" y="190" width="84" height="24" rx="12" fill="#F4F2FF"/>
+      <text x="202" y="206" text-anchor="middle">watchUser</text>
+      <rect x="250" y="190" width="66" height="24" rx="12" fill="#F4F2FF"/>
+      <text x="283" y="206" text-anchor="middle">onAct</text>
     </g>
   </g>
+  <path d="M230 170 V184" stroke="#B9AFF0" stroke-width="2" stroke-linecap="round" marker-end="url(#g)"/>
 
-  <!-- the port -->
-  <g transform="translate(244 432)">
+  <!-- the port: ours -->
+  <g transform="translate(244 436)">
     <rect width="176" height="34" rx="17" fill="#4B2FD1"/>
     <text x="88" y="22" text-anchor="middle" font-size="12" font-weight="600" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#FFFFFF">kit.answer(request)</text>
   </g>
 
-  <!-- packages -->
-  <g font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#3B3570">
-    <rect x="40" y="518" width="176" height="26" rx="13" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
-    <text x="128" y="535" text-anchor="middle">Flutter · affordkit</text>
-    <rect x="224" y="518" width="196" height="26" rx="13" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
-    <text x="322" y="535" text-anchor="middle">Web · affordkit/dom</text>
-  </g>
-
   <!-- ================= Between: your channel ================= -->
-  <text x="500" y="304" text-anchor="middle" font-size="12" font-weight="600" letter-spacing="0.8" fill="#8A84B8">YOUR CHANNEL</text>
-  <text x="500" y="322" text-anchor="middle" font-size="12" fill="#6B6596">WebSocket, HTTP, …</text>
+  <text x="500" y="300" text-anchor="middle" font-size="12" font-weight="600" letter-spacing="0.8" fill="#8A84B8">YOUR CHANNEL</text>
+  <text x="500" y="318" text-anchor="middle" font-size="12" fill="#6B6596">WebSocket, HTTP, …</text>
 
-  <!-- request: from the backend to the app -->
-  <path d="M572 412 H436" stroke="#E0A000" stroke-width="2" stroke-linecap="round" marker-end="url(#s)"/>
-  <g transform="translate(436 360)">
+  <!-- request: from the server to the app -->
+  <path d="M572 412 H436" stroke="#E0A000" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 5" marker-end="url(#s)"/>
+  <g transform="translate(436 358)">
     <text x="68" y="0" text-anchor="middle" font-size="12" font-weight="700" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#B07D00">UiRequest</text>
     <text x="68" y="18" text-anchor="middle" font-size="11.5" fill="#6B6596">look, or calls:</text>
     <text x="68" y="34" text-anchor="middle" font-size="11.5" fill="#6B6596">press · write · navigate</text>
   </g>
 
-  <!-- answer: from the app to the backend -->
-  <path d="M424 456 H560" stroke="#4B2FD1" stroke-width="2" stroke-linecap="round" marker-end="url(#v)"/>
-  <g transform="translate(428 476)">
+  <!-- answer: from the app to the server -->
+  <path d="M424 456 H560" stroke="#4B2FD1" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 5" marker-end="url(#v)"/>
+  <g transform="translate(428 478)">
     <text x="68" y="0" text-anchor="middle" font-size="12" font-weight="700" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#4B2FD1">UiAnswer</text>
     <text x="68" y="18" text-anchor="middle" font-size="11.5" fill="#6B6596">the tree after, results,</text>
     <text x="68" y="34" text-anchor="middle" font-size="11.5" fill="#6B6596">what the user did</text>
   </g>
 
-  <!-- ================= Backend ================= -->
+  <!-- ================= Backend: your server ================= -->
   <text x="580" y="46" font-size="12" font-weight="600" letter-spacing="0.8" fill="#8A84B8">BACKEND · YOUR SERVER</text>
-  <rect x="580" y="60" width="380" height="448" rx="22" fill="#4B2FD1"/>
+  <rect x="580" y="60" width="380" height="448" rx="22" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
 
-  <!-- your model loop -->
-  <g transform="translate(604 84)">
-    <rect width="332" height="78" rx="16" fill="#FFFFFF" fill-opacity="0.1"/>
-    <g transform="translate(40 39)">
-      <path d="M0 -18 C2.5 -6 6 -2.5 18 0 C6 2.5 2.5 6 0 18 C-2.5 6 -6 2.5 -18 0 C-6 -2.5 -2.5 -6 0 -18 Z" fill="#FFC233"/>
+  <!-- your agent: yours -->
+  <g transform="translate(604 80)">
+    <rect width="332" height="100" rx="16" fill="#FFFFFF" stroke="#B9AFF0" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <g transform="translate(36 50)">
+      <path d="M0 -17 C2.4 -5.6 5.6 -2.4 17 0 C5.6 2.4 2.4 5.6 0 17 C-2.4 5.6 -5.6 2.4 -17 0 C-5.6 -2.4 -2.4 -5.6 0 -17 Z" fill="#FFC233"/>
     </g>
-    <text x="74" y="34" font-size="14" font-weight="700" fill="#FFFFFF">Your model loop</text>
-    <text x="74" y="54" font-size="12" fill="#CFC6FF">Claude, GPT, any model, with your prompt</text>
+    <text x="68" y="38" font-size="13.5" font-weight="700" fill="#1F1A4E">Your agent</text>
+    <text x="68" y="57" font-size="12" fill="#6B6596">your model, loop and prompt, or an agent</text>
+    <text x="68" y="74" font-size="12" fill="#6B6596">like Claude Code or Codex</text>
   </g>
 
-  <!-- adapters -->
-  <path d="M770 166 V194" stroke="#CFC6FF" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 6"/>
-  <text x="784" y="184" font-size="12" fill="#CFC6FF">tool calls ⇄ results</text>
-  <g transform="translate(604 198)" font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#FFFFFF">
-    <rect width="112" height="24" rx="12" fill="#FFFFFF" fill-opacity="0.14"/>
-    <text x="56" y="16" text-anchor="middle">anthropicTools</text>
-    <rect x="118" width="96" height="24" rx="12" fill="#FFFFFF" fill-opacity="0.14"/>
-    <text x="166" y="16" text-anchor="middle">openaiTools</text>
-    <rect x="220" width="112" height="24" rx="12" fill="#FFFFFF" fill-opacity="0.14"/>
-    <text x="276" y="16" text-anchor="middle">mcpHandlers</text>
-  </g>
+  <!-- between them: the screen tools, in the agent's shape -->
+  <path d="M770 184 V230" stroke="#B9AFF0" stroke-width="2" stroke-linecap="round" marker-start="url(#g)" marker-end="url(#g)"/>
+  <text x="784" y="203" font-size="12" fill="#6B6596">tool calls ⇄ results,</text>
+  <text x="784" y="219" font-size="12" fill="#6B6596">in its shape</text>
 
-  <path d="M770 226 V258" stroke="#CFC6FF" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 6"/>
-  <text x="784" y="246" font-size="12" fill="#CFC6FF">in your model API's shape</text>
-
-  <!-- AffordRemote -->
-  <g transform="translate(604 262)">
-    <rect width="332" height="150" rx="16" fill="#FFFFFF"/>
-    <text x="16" y="26" font-size="14" font-weight="700" fill="#1F1A4E">AffordRemote</text>
+  <!-- AffordRemote: ours -->
+  <g transform="translate(604 236)">
+    <rect width="332" height="184" rx="16" fill="#FFFFFF" stroke="#4B2FD1" stroke-width="2"/>
+    <text x="16" y="26" font-size="13.5" font-weight="700" fill="#4B2FD1">AffordRemote</text>
     <text x="316" y="26" text-anchor="end" font-size="12" fill="#6B6596">the screen as tools</text>
-    <g font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#1F1A4E">
-      <rect x="16" y="40" width="72" height="22" rx="11" fill="#F4F2FF"/>
-      <text x="52" y="55" text-anchor="middle">ui_look</text>
-      <rect x="94" y="40" width="64" height="22" rx="11" fill="#F4F2FF"/>
-      <text x="126" y="55" text-anchor="middle">ui_act</text>
-      <rect x="164" y="40" width="96" height="22" rx="11" fill="#F4F2FF"/>
-      <text x="212" y="55" text-anchor="middle">ui_navigate</text>
-      <rect x="16" y="68" width="72" height="22" rx="11" fill="#F4F2FF"/>
-      <text x="52" y="83" text-anchor="middle">ui_peek</text>
-      <rect x="94" y="68" width="72" height="22" rx="11" fill="#F4F2FF"/>
-      <text x="130" y="83" text-anchor="middle">ui_tool</text>
-      <rect x="172" y="68" width="96" height="22" rx="11" fill="#F4F2FF"/>
-      <text x="220" y="83" text-anchor="middle">ui_handoff</text>
+    <g font-size="11" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#1F1A4E">
+      <rect x="16" y="40" width="70" height="22" rx="11" fill="#F4F2FF"/>
+      <text x="51" y="55" text-anchor="middle">ui_look</text>
+      <rect x="92" y="40" width="62" height="22" rx="11" fill="#F4F2FF"/>
+      <text x="123" y="55" text-anchor="middle">ui_act</text>
+      <rect x="160" y="40" width="92" height="22" rx="11" fill="#F4F2FF"/>
+      <text x="206" y="55" text-anchor="middle">ui_navigate</text>
+      <rect x="16" y="68" width="70" height="22" rx="11" fill="#F4F2FF"/>
+      <text x="51" y="83" text-anchor="middle">ui_peek</text>
+      <rect x="92" y="68" width="70" height="22" rx="11" fill="#F4F2FF"/>
+      <text x="127" y="83" text-anchor="middle">ui_tool</text>
+      <rect x="168" y="68" width="92" height="22" rx="11" fill="#F4F2FF"/>
+      <text x="214" y="83" text-anchor="middle">ui_handoff</text>
     </g>
-    <path d="M16 104 H316" stroke="#EFEBFF" stroke-width="1.5"/>
-    <text x="16" y="124" font-size="12" fill="#3B3570">answers as text: what changed on screen,</text>
-    <text x="16" y="140" font-size="12" fill="#3B3570">what the user did, why a step failed</text>
+    <text x="16" y="118" font-size="12" fill="#3B3570">for the Anthropic and OpenAI APIs, or MCP</text>
+    <path d="M16 132 H316" stroke="#EFEBFF" stroke-width="1.5"/>
+    <text x="16" y="152" font-size="12" fill="#3B3570">answers as text: what changed on screen,</text>
+    <text x="16" y="168" font-size="12" fill="#3B3570">what the user did, why a step failed</text>
   </g>
 
-  <!-- the port -->
-  <g transform="translate(580 432)">
-    <rect width="190" height="34" rx="17" fill="#FFC233"/>
-    <text x="95" y="22" text-anchor="middle" font-size="12" font-weight="600" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#1F1A4E">send(request)</text>
+  <!-- the port: ours -->
+  <g transform="translate(580 436)">
+    <rect width="190" height="34" rx="17" fill="#4B2FD1"/>
+    <text x="95" y="22" text-anchor="middle" font-size="12" font-weight="600" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#FFFFFF">send(request)</text>
   </g>
+
+  <!-- ================= Packages, and the key ================= -->
   <g font-size="11.5" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#3B3570">
-    <rect x="580" y="518" width="188" height="26" rx="13" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
-    <text x="674" y="535" text-anchor="middle">Node · affordkit</text>
+    <rect x="40" y="520" width="176" height="26" rx="13" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
+    <text x="128" y="537" text-anchor="middle">Flutter · affordkit</text>
+    <rect x="224" y="520" width="196" height="26" rx="13" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
+    <text x="322" y="537" text-anchor="middle">Web · affordkit/dom</text>
+    <rect x="580" y="520" width="188" height="26" rx="13" fill="#FFFFFF" stroke="#E3DEFA" stroke-width="1.5"/>
+    <text x="674" y="537" text-anchor="middle">Node · affordkit</text>
+  </g>
+  <g font-size="12" fill="#3B3570">
+    <rect x="800" y="524" width="18" height="18" rx="5" fill="#FFFFFF" stroke="#4B2FD1" stroke-width="2"/>
+    <text x="826" y="537">AffordKit</text>
+    <rect x="894" y="524" width="18" height="18" rx="5" fill="#FFFFFF" stroke="#B9AFF0" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="920" y="537">yours</text>
   </g>
 </svg>
