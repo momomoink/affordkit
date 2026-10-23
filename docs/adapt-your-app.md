@@ -31,7 +31,7 @@ Use AffordKit so the assistant can open a mail and reply to it.
   /plugin install affordkit@affordkit
   ```
 
-- **Claude Code, without the plugin:** copy [`skills/affordkit/`](../skills/affordkit/SKILL.md) to `~/.claude/skills/affordkit/`
+- **Claude Code, without the plugin:** copy [`skills/affordkit/`](https://github.com/momomoink/affordkit/blob/main/skills/affordkit/SKILL.md) to `~/.claude/skills/affordkit/`
   (all your projects) or to `.claude/skills/affordkit/` in one project.
 - **claude.ai:** zip the `skills/affordkit/` folder and upload it in Settings (Features / Capabilities, under Skills). This needs a
   plan with code execution enabled.
@@ -71,4 +71,4 @@ Rather do it yourself? The steps are the same; each platform's docs have the det
 | Connect your agent | [connecting an agent](flutter/connecting-an-agent.md) | [connecting an agent](js/connecting-an-agent.md) |
 | When the user leaves the app | [handoffs](flutter/handoffs.md) | [handoffs](js/handoffs.md) |
 
-The skill's own checklist, which works as well for a person: [`skills/affordkit/SKILL.md`](../skills/affordkit/SKILL.md).
+The skill's own checklist, which works as well for a person: [`skills/affordkit/SKILL.md`](https://github.com/momomoink/affordkit/blob/main/skills/affordkit/SKILL.md).

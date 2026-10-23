@@ -1,7 +1,7 @@
 # Protocol
 
-Both runtimes speak this JSON (protocol version `1`). The TypeScript types are in [`js/src/protocol.ts`](../js/src/protocol.ts),
-the Dart ones in [`flutter/lib/src/protocol.dart`](../flutter/lib/src/protocol.dart).
+Both runtimes speak this JSON (protocol version `1`). The TypeScript types are in [`js/src/protocol.ts`](https://github.com/momomoink/affordkit/blob/main/js/src/protocol.ts),
+the Dart ones in [`flutter/lib/src/protocol.dart`](https://github.com/momomoink/affordkit/blob/main/flutter/lib/src/protocol.dart).
 
 ## Context
 

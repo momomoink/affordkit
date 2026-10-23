@@ -8,3 +8,6 @@ dist/
 build/
 flutter/pubspec.lock
 flutter/example/pubspec.lock
+
+# The docs site, built (mkdocs build)
+site/

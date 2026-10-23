@@ -1,0 +1,89 @@
+# The documentation site (MkDocs Material): the Markdown in docs/, as it is on GitHub too.
+#   docker run --rm -v "$PWD:/docs" squidfunk/mkdocs-material:9.6.14 build --strict   build into site/
+#   docker run --rm -p 8000:8000 -v "$PWD:/docs" squidfunk/mkdocs-material:9.6.14  serve on localhost:8000
+# Published to GitHub Pages by .github/workflows/docs.yml on each push to main.
+site_name: AffordKit
+site_description: A frontend library that lets an AI agent on your backend use your app's UI the way a person would.
+site_url: https://momomoink.github.io/affordkit/
+repo_url: https://github.com/momomoink/affordkit
+repo_name: momomoink/affordkit
+edit_uri: edit/main/docs/
+copyright: MIT license
+
+# (docs/README.md is the folder's page on GitHub; the site's home is index.md)
+exclude_docs: |
+  /README.md
+
+theme:
+  name: material
+  logo: assets/logo-dark.svg
+  favicon: assets/logo.svg
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - content.action.edit
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Add to your app: adapt-your-app.md
+  - Flutter:
+      - flutter/README.md
+      - Concepts: flutter/concepts.md
+      - Getting started: flutter/getting-started.md
+      - What to expose: flutter/what-to-expose.md
+      - Connecting an agent: flutter/connecting-an-agent.md
+      - Handoffs: flutter/handoffs.md
+  - JavaScript:
+      - js/README.md
+      - Concepts: js/concepts.md
+      - Getting started: js/getting-started.md
+      - What to expose: js/what-to-expose.md
+      - Connecting an agent: js/connecting-an-agent.md
+      - Handoffs: js/handoffs.md
+  - Protocol: protocol.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
