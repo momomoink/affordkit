@@ -528,7 +528,14 @@ Map<String, String>? matchRoute(String pattern, String route) {
     final w = want[i];
     if (w == '*') break;
     if (w.startsWith(':')) {
-      params[w.substring(1)] = Uri.decodeComponent(got[i]);
+      // (a malformed escape, /b/%zz: not this route, rather than an exception)
+      try {
+        params[w.substring(1)] = Uri.decodeComponent(got[i]);
+      } on ArgumentError {
+        return null;
+      } on FormatException {
+        return null; // (a broken UTF-8 sequence, /b/%C3)
+      }
     } else if (w != got[i]) {
       return null;
     }
@@ -536,16 +543,42 @@ Map<String, String>? matchRoute(String pattern, String route) {
   return params;
 }
 
-/// The pattern a route is (the most specific: fewest params), and its params.
+/// The pattern a route is, and its params: the most specific of those that match — one without a catch-all (*) before one with,
+/// then the fewest params, then the most fixed segments; on a tie, the first listed.
 (RouteSpec, Map<String, String>)? findRoute(
   List<RouteSpec> routes,
   String route,
 ) {
+  List<int> rank(String path, Map<String, String> params) {
+    final parts = path
+        .split(RegExp('[?#]'))
+        .first
+        .split('/')
+        .where((x) => x.isNotEmpty)
+        .toList();
+    return [
+      parts.isNotEmpty && parts.last == '*' ? 1 : 0,
+      params.length,
+      -parts.where((p) => p != '*' && !p.startsWith(':')).length,
+    ];
+  }
+
+  bool before(List<int> a, List<int> b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return a[i] < b[i];
+    }
+    return false;
+  }
+
   (RouteSpec, Map<String, String>)? best;
+  List<int>? bestRank;
   for (final spec in routes) {
     final params = matchRoute(spec.path, route);
-    if (params != null && (best == null || params.length < best.$2.length)) {
+    if (params == null) continue;
+    final r = rank(spec.path, params);
+    if (bestRank == null || before(r, bestRank)) {
       best = (spec, params);
+      bestRank = r;
     }
   }
   return best;

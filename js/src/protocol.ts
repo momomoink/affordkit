@@ -461,20 +461,36 @@ export function matchRoute(pattern: string, route: string): Record<string, strin
   for (let i = 0; i < want.length; i++) {
     const w = want[i]!;
     if (w === '*') break;
-    if (w.startsWith(':')) params[w.slice(1)] = decodeURIComponent(got[i]!);
-    else if (w !== got[i]) return null;
+    if (w.startsWith(':')) {
+      // (a malformed escape, /b/%zz: not this route, rather than an exception)
+      try {
+        params[w.slice(1)] = decodeURIComponent(got[i]!);
+      } catch {
+        return null;
+      }
+    } else if (w !== got[i]) return null;
   }
   return params;
 }
 
-/** The pattern a route is (the most specific: fewest params), and its params. */
+/**
+ * The pattern a route is, and its params: the most specific of those that match — one without a catch-all (*) before one with,
+ * then the fewest params, then the most fixed segments; on a tie, the first listed.
+ */
 export function findRoute(routes: RouteSpec[], route: string): { spec: RouteSpec; params: Record<string, string> } | null {
-  let best: { spec: RouteSpec; params: Record<string, string> } | null = null;
+  const rank = (path: string, params: Record<string, string>) => {
+    const parts = path.split(/[?#]/)[0]!.split('/').filter(Boolean);
+    return [parts.at(-1) === '*' ? 1 : 0, Object.keys(params).length, -parts.filter((p) => p !== '*' && !p.startsWith(':')).length];
+  };
+  const before = (a: number[], b: number[]) => a[0]! - b[0]! || a[1]! - b[1]! || a[2]! - b[2]!;
+  let best: { spec: RouteSpec; params: Record<string, string>; rank: number[] } | null = null;
   for (const spec of routes) {
     const params = matchRoute(spec.path, route);
-    if (params && (!best || Object.keys(params).length < Object.keys(best.params).length)) best = { spec, params };
+    if (!params) continue;
+    const r = rank(spec.path, params);
+    if (!best || before(r, best.rank) < 0) best = { spec, params, rank: r };
   }
-  return best;
+  return best && { spec: best.spec, params: best.params };
 }
 
 /** A node's ops: the standard ones for its role with the app's policies applied, plus its own. */

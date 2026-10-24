@@ -140,7 +140,9 @@ export class AffordRemote {
       this.options.send(request).then(
         (answer) => {
           clearTimeout(timer);
-          resolve(answer);
+          // (an answer that is neither a screen nor an error — not even an object — is no answer: handle never throws)
+          const a = answer as Partial<{ context: unknown; error: unknown }> | null;
+          resolve(a && typeof a === 'object' && ('error' in a || (a.context && typeof a.context === 'object')) ? answer : { error: 'The app gave no screen', code: 'unavailable' });
         },
         (error: unknown) => {
           clearTimeout(timer);

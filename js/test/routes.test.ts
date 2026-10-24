@@ -112,3 +112,23 @@ describe('AffordKit routes', () => {
     expect((await next.peek('/mail/sent')).source).toBe('seen');
   });
 });
+
+describe('findRoute: the most specific pattern', () => {
+  it('a catch-all only when nothing else matches, then the fewest params, then the most fixed segments; a bad escape matches nothing', async () => {
+    const { findRoute } = await import('../src/protocol.js');
+    const routes = [
+      { path: '/*', description: 'anything' },
+      { path: '/mail/:box', description: 'a mailbox' },
+      { path: '/:section/:page', description: 'a page' },
+      { path: '/mail/inbox', description: 'the inbox' },
+      { path: '/mail/*', description: 'under mail' },
+    ];
+    expect(findRoute(routes, '/mail/inbox')?.spec.path).toBe('/mail/inbox');
+    expect(findRoute(routes, '/mail/archive')).toMatchObject({ spec: { path: '/mail/:box' }, params: { box: 'archive' } });
+    expect(findRoute(routes, '/settings/ai')?.spec.path).toBe('/:section/:page');
+    expect(findRoute(routes, '/mail/a/b')?.spec.path).toBe('/mail/*');
+    expect(findRoute(routes, '/x')?.spec.path).toBe('/*');
+    expect(findRoute(routes.slice(1, 3), '/mail/%zz')).toBeNull();
+    expect(findRoute(routes.slice(1, 3), '/mail/%C3')).toBeNull();
+  });
+});

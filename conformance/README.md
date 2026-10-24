@@ -59,6 +59,7 @@ answers every request with the `inbox` screen and a picture (`answering`), or wi
   `JSON.stringify` gives: no spaces, non-ASCII as it is, and object keys **in the order they came in**. Keep the order from the
   app's answer (Python dicts do; in Go, keep the raw JSON instead of decoding into a map).
 - **Numbers** are printed as JavaScript does: `312`, not `312.0`.
-- **Dates.** A peeked page seen at `seenAt` (ms) prints it as ISO 8601 in UTC with milliseconds: `2026-10-21T22:09:32.948Z`.
+- **Dates.** A peeked page seen at `seenAt` (ms) prints it as ISO 8601 in UTC with milliseconds: `1792711772948` is
+  `2026-10-22T23:29:32.948Z`.
 - **Strings** are compared byte for byte, line breaks (`\n`) included; the dashes and arrows in them (`—`, `–`, `…`, `·`, `∈`) are
   Unicode characters, not ASCII look-alikes.

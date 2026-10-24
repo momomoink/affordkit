@@ -10960,7 +10960,7 @@
       }
     },
     {
-      "name": "the app could not do it: its error, a lost request, an answer without results, no answer",
+      "name": "the app could not do it: its error, a lost request, an answer without results, no answer, an answer that is none",
       "options": {
         "timeoutMs": 50
       },
@@ -11456,6 +11456,14 @@
           "reply": {
             "never": true
           }
+        },
+        {
+          "tool": "ui_look",
+          "reply": {}
+        },
+        {
+          "tool": "ui_look",
+          "reply": "not an answer"
         }
       ],
       "expect": {
@@ -11545,6 +11553,22 @@
               ]
             },
             "code": "timeout"
+          },
+          {
+            "text": "Failed (unavailable): The app gave no screen",
+            "isError": true,
+            "request": {
+              "look": true
+            },
+            "code": "unavailable"
+          },
+          {
+            "text": "Failed (unavailable): The app gave no screen",
+            "isError": true,
+            "request": {
+              "look": true
+            },
+            "code": "unavailable"
           }
         ]
       }
@@ -12631,6 +12655,13 @@
         {
           "tool": "ui_handoff",
           "input": {
+            "message": "Look.",
+            "route": "/mail/%zz"
+          }
+        },
+        {
+          "tool": "ui_handoff",
+          "input": {
             "route": "/drafts"
           }
         },
@@ -12812,6 +12843,11 @@
           },
           {
             "text": "Failed (bad_args): route is a route of the app (e.g. /drafts), or left out",
+            "isError": true,
+            "code": "bad_args"
+          },
+          {
+            "text": "Failed (bad_args): No route /mail/%zz (the routes: /mail/:box, /message/:id, /reply/:id, /drafts)",
             "isError": true,
             "code": "bad_args"
           },

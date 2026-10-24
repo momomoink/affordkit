@@ -203,4 +203,22 @@ void main() {
       expect((await next.peek('/settings/general')).source, PageSource.seen);
     },
   );
+
+  test('findRoute: a catch-all only when nothing else matches, then the fewest params, then the most fixed segments; a bad escape matches nothing', () {
+    const routes = [
+      RouteSpec('/*', 'anything'),
+      RouteSpec('/mail/:box', 'a mailbox'),
+      RouteSpec('/:section/:page', 'a page'),
+      RouteSpec('/mail/inbox', 'the inbox'),
+      RouteSpec('/mail/*', 'under mail'),
+    ];
+    expect(findRoute(routes, '/mail/inbox')?.$1.path, '/mail/inbox');
+    expect(findRoute(routes, '/mail/archive')?.$1.path, '/mail/:box');
+    expect(findRoute(routes, '/mail/archive')?.$2, {'box': 'archive'});
+    expect(findRoute(routes, '/settings/ai')?.$1.path, '/:section/:page');
+    expect(findRoute(routes, '/mail/a/b')?.$1.path, '/mail/*');
+    expect(findRoute(routes, '/x')?.$1.path, '/*');
+    expect(findRoute(routes.sublist(1, 3), '/mail/%zz'), isNull);
+    expect(matchRoute('/mail/:box', '/mail/%C3'), isNull);
+  });
 }

@@ -116,7 +116,7 @@ const noRoute: AffordContext = { protocol: 1, tools: [], root: n('app', 'app', '
 // ---------------- cases ----------------
 
 /** What the app does with one request: answer, never answer (a timeout), or fail to deliver it. */
-type Reply = UiAnswer | { never: true } | { throws: string; code?: string };
+type Reply = UiAnswer | { never: true } | { throws: string; code?: string } | Record<string, never> | string;
 
 interface Step {
   tool: string;
@@ -288,7 +288,7 @@ const cases: Case[] = [
     steps: [{ tool: 'ui_act', input: { node: 'thread.body', op: 'read' }, reply: ok(thread, [{ call: { node: 'thread.body', op: 'read', args: {} }, ok: true, value: '' }]) }],
   },
   {
-    name: 'the app could not do it: its error, a lost request, an answer without results, no answer',
+    name: 'the app could not do it: its error, a lost request, an answer without results, no answer, an answer that is none',
     options: { timeoutMs: 50 },
     seen: inbox,
     steps: [
@@ -298,6 +298,8 @@ const cases: Case[] = [
       { tool: 'ui_act', input: { node: 'w4', op: 'press' }, reply: { throws: 'Not on screen', code: 'unreachable' } },
       { tool: 'ui_act', input: { node: 'w4', op: 'press' }, reply: { context: inbox, results: [] } },
       { tool: 'ui_act', input: { node: 'w4', op: 'press' }, reply: { never: true } },
+      { tool: 'ui_look', reply: {} },
+      { tool: 'ui_look', reply: 'not an answer' },
     ],
   },
   {
@@ -323,6 +325,7 @@ const cases: Case[] = [
       { tool: 'ui_handoff', input: { message: 'Done.' }, handoffSays: '' },
       { tool: 'ui_handoff', input: { message: 'Look.', route: '/nowhere' } },
       { tool: 'ui_handoff', input: { message: 'Go back.', route: 'back' } },
+      { tool: 'ui_handoff', input: { message: 'Look.', route: '/mail/%zz' } },
       { tool: 'ui_handoff', input: { route: '/drafts' } },
       { tool: 'ui_handoff', input: { message: 'x'.repeat(501) } },
       { tool: 'ui_handoff', input: { message: 'Open it.', calls: [{ op: 'press' }] } },
@@ -356,8 +359,8 @@ async function run(c: Case) {
       rec.request = JSON.parse(JSON.stringify(request));
       const reply = step?.reply;
       if (!reply) throw new Error(`step sent a request it has no reply for: ${JSON.stringify(request)}`);
-      if ('never' in reply) return new Promise<UiAnswer>(() => {});
-      if ('throws' in reply) return Promise.reject(reply.code ? new AffordError(reply.code as never, reply.throws) : new Error(reply.throws));
+      if (typeof reply === 'object' && 'never' in reply) return new Promise<UiAnswer>(() => {});
+      if (typeof reply === 'object' && 'throws' in reply) return Promise.reject(reply.code ? new AffordError(reply.code as never, reply.throws) : new Error(reply.throws));
       return Promise.resolve(JSON.parse(JSON.stringify(reply)));
     },
     ...(c.options?.timeoutMs ? { timeoutMs: c.options.timeoutMs } : {}),
