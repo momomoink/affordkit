@@ -38,6 +38,14 @@ mail, press Reply, type the answer; the user watches it happen, on their own scr
 
     [:octicons-arrow-right-24: JavaScript / TypeScript](js/README.md)
 
+-   **Python or Go server**
+
+    ---
+
+    The agent's side (`AffordRemote` and the adapters) for a model on a Python or Go server.
+
+    [:octicons-arrow-right-24: Python](https://github.com/momomoink/affordkit/tree/main/python) · [Go](https://github.com/momomoink/affordkit/tree/main/go)
+
 -   **Already have an app**
 
     ---

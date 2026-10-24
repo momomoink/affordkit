@@ -118,8 +118,11 @@ OpenAI, MCP and other loops are covered too.
 - **Flutter**: [`flutter/README.md`](flutter/README.md) (`flutter pub add affordkit`)
 - **JavaScript / TypeScript**, for any web framework and for the agent's side on a server:
   [`js/README.md`](js/README.md) (`npm install affordkit`)
+- **The agent's side in Python or Go**, when your model runs on a server in one of those: [`python/README.md`](python/README.md)
+  (`pip install affordkit`), [`go/README.md`](go/README.md) (`go get github.com/momomoink/affordkit/go`). They are ports of
+  `AffordRemote` and the adapters, held to the TypeScript one by the shared [conformance tests](conformance/README.md).
 
-A Flutter app with its model on a TypeScript server uses both: the Flutter package in the app, the npm package on the server.
+A Flutter app with its model on a TypeScript (or Python, or Go) server uses both: the Flutter package in the app, the server package on the server.
 They speak the same JSON.
 
 ## Let your coding agent add it
