@@ -1,5 +1,5 @@
 # The documentation site (mkdocs.yml, docs/): built and published to GitHub Pages on each push to main that touches it.
-# The repository's Pages source must be "GitHub Actions" (Settings → Pages).
+# The repository's Pages source must be "GitHub Actions" (Settings → Pages). The site: https://momomoink.github.io/affordkit/
 name: docs
 
 on:
