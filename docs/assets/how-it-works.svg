@@ -36,8 +36,7 @@
   <!-- AffordKit in the app: ours -->
   <g transform="translate(64 186)">
     <rect width="332" height="234" rx="16" fill="#FFFFFF" stroke="#4B2FD1" stroke-width="2"/>
-    <text x="16" y="26" font-size="13.5" font-weight="700" fill="#4B2FD1">AffordKit</text>
-    <text x="316" y="26" text-anchor="end" font-size="12" fill="#6B6596">builds the tree, runs the calls</text>
+    <text x="16" y="26" font-size="13.5" font-weight="700" fill="#4B2FD1">AffordKit <tspan font-size="12.5" font-weight="400" fill="#6B6596">(frontend library)</tspan></text>
 
     <!-- the AffordTree -->
     <rect x="16" y="40" width="300" height="104" rx="12" fill="#F4F2FF"/>
@@ -125,8 +124,7 @@
   <!-- AffordRemote: ours -->
   <g transform="translate(604 236)">
     <rect width="332" height="184" rx="16" fill="#FFFFFF" stroke="#4B2FD1" stroke-width="2"/>
-    <text x="16" y="26" font-size="13.5" font-weight="700" fill="#4B2FD1">AffordRemote</text>
-    <text x="316" y="26" text-anchor="end" font-size="12" fill="#6B6596">the screen as tools</text>
+    <text x="16" y="26" font-size="13.5" font-weight="700" fill="#4B2FD1">AffordRemote <tspan font-size="12.5" font-weight="400" fill="#6B6596">(backend library)</tspan></text>
     <g font-size="11" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace" fill="#1F1A4E">
       <rect x="16" y="40" width="70" height="22" rx="11" fill="#F4F2FF"/>
       <text x="51" y="55" text-anchor="middle">ui_look</text>
@@ -141,7 +139,7 @@
       <rect x="168" y="68" width="92" height="22" rx="11" fill="#F4F2FF"/>
       <text x="214" y="83" text-anchor="middle">ui_handoff</text>
     </g>
-    <text x="16" y="118" font-size="12" fill="#3B3570">for the Anthropic and OpenAI APIs, or MCP</text>
+    <text x="16" y="118" font-size="12" fill="#3B3570">the screen as tools for Anthropic, OpenAI or MCP</text>
     <path d="M16 132 H316" stroke="#EFEBFF" stroke-width="1.5"/>
     <text x="16" y="152" font-size="12" fill="#3B3570">answers as text: what changed on screen,</text>
     <text x="16" y="168" font-size="12" fill="#3B3570">what the user did, why a step failed</text>
